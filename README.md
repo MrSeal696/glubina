@@ -41,4 +41,4 @@
 
 ---
 
-Неофициальный инструмент. Не связан с Mojang Studios и Microsoft.
+Неофициальный инструмент. Не связан с Mojang Studios и Microsoft..
