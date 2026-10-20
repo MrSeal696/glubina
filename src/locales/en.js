@@ -138,7 +138,6 @@ export default {
 
   // ---- hints ----
   "Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.": "Click a wall to cut an opening. Set the new door size on the right. The opening also goes through the double walls of neighbouring rooms.",
-  "Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам.": "Click to select, drag to move, handles resize. Alt + drag copies. Double-click opens the block layout.",
   "Тяни от угла до угла.": "Drag from corner to corner.",
   "Тяни от центра наружу: диаметр всегда нечётный.": "Drag out from the centre: the diameter is always odd.",
   "Тяни, чтобы двигать план. Колесо меняет масштаб.": "Drag to pan. The wheel zooms.",
@@ -462,4 +461,19 @@ export default {
   "Дубовые доски": "Oak Planks",
   "Еловые доски": "Spruce Planks",
   "Доски тёмного дуба": "Dark Oak Planks",
+  // ---- shapes ----
+  "Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам. У формы: тяни точки и кружки на сторонах, двойной клик по стене добавляет точку, по точке — удаляет.": "Click to select, drag to move, handles resize. Alt + drag copies. Double-click opens the block layout. For a shape: drag the points and the dots on the sides, double-click a wall to add a point, double-click a point to remove it.",
+  "Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.": "Click block corners to place points. Shift draws straight lines. Click the first point, double-click or press Enter to finish. Backspace removes the last point.",
+  "Комната любой формы": "Room of any shape",
+  "Форма по точкам (P)": "Shape by points (P)",
+  "Многоугольник": "Polygon",
+  "Стены между этой комнатой и соседними, где тоже включено, не строятся": "No walls are built between this room and neighbours that also have this on",
+  "Срастаться с соседними": "Merge with neighbours",
+  "Тяни квадратики — точки, кружки на сторонах — стену целиком. Двойной клик по стене добавляет точку, по точке — удаляет её.": "Drag the squares to move points and the dots on the sides to move a whole wall. Double-click a wall to add a point, double-click a point to remove it.",
+  "Точка {n}": "Point {n}",
+  "точек: {n}": "points: {n}",
+  "отрезок {l} бл.": "segment {l} bl.",
+  "Enter — готово, Esc — отмена": "Enter — done, Esc — cancel",
+  "У формы должно быть хотя бы 3 точки.": "A shape needs at least 3 points.",
+  "многоугольник {w}×{d}, точек: {n}": "polygon {w}×{d}, {n} points",
 };

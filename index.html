@@ -71,6 +71,7 @@
       <div><dt><kbd>R</kbd></dt><dd>Прямоугольная комната</dd></div>
       <div><dt><kbd>Ctrl</kbd>+<kbd>D</kbd></dt><dd>Копия рядом</dd></div>
       <div><dt><kbd>C</kbd></dt><dd>Круглый зал от центра</dd></div>
+      <div><dt><kbd>P</kbd></dt><dd>Комната любой формы</dd></div>
       <div><dt><kbd>Alt</kbd> + перетаскивание</dt><dd>Вытащить копию комнаты</dd></div>
       <div><dt><kbd>H</kbd> или <kbd>Пробел</kbd></dt><dd>Двигать план</dd></div>
       <div><dt>Стрелки, с <kbd>Shift</kbd></dt><dd>Сдвиг на 1 блок, на 8 блоков</dd></div>
@@ -147,6 +148,7 @@
         <button data-tool="select" aria-label="Выбор и перемещение" title="Выбор (V)"><svg class="i" viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></svg></button>
         <button data-tool="rect" aria-label="Прямоугольная комната" title="Прямоугольник (R)"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12"/></svg></button>
         <button data-tool="circle" aria-label="Круглое помещение" title="Круг (C)"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 12h.01"/></svg></button>
+        <button data-tool="poly" aria-label="Комната любой формы" title="Форма по точкам (P)"><svg class="i" viewBox="0 0 24 24"><path d="M4 6l7-2 9 5-3 11H6z"/><path d="M4 6h.01M11 4h.01M20 9h.01M17 20h.01M6 20h.01"/></svg></button>
         <button data-tool="door" aria-label="Дверь" title="Дверь (D): клик по стене"><svg class="i" viewBox="0 0 24 24"><path d="M6 21V4h12v17"/><path d="M3 21h18"/><path d="M14 13h.01"/></svg></button>
         <button data-tool="hand" aria-label="Двигать план" title="Рука (H, или пробел)"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
         <div class="sep" aria-hidden="true"></div>
@@ -232,7 +234,7 @@
             <label class="f">Название<input id="r-name" type="text"></label>
             <div class="row">
               <label class="f">Тип<select id="r-type"></select></label>
-              <label class="f">Форма<select id="r-shape"><option value="rect">Прямоугольник</option><option value="circle">Круг</option></select></label>
+              <label class="f">Форма<select id="r-shape"><option value="rect">Прямоугольник</option><option value="circle">Круг</option><option value="poly">Многоугольник</option></select></label>
             </div>
             <div class="row">
               <label class="f">X, западный край<input id="r-x" type="number" step="1"></label>
@@ -254,6 +256,8 @@
               <label class="f">Этаж<select id="r-floor"></select></label>
             </div>
             <button class="linkbtn" id="r-color-reset">Вернуть цвет типа</button>
+            <label class="chk" title="Стены между этой комнатой и соседними, где тоже включено, не строятся"><input type="checkbox" id="r-join"> Срастаться с соседними</label>
+            <p class="meta" id="r-polyhelp" hidden>Тяни квадратики — точки, кружки на сторонах — стену целиком. Двойной клик по стене добавляет точку, по точке — удаляет её.</p>
             <div class="row3">
               <label class="f">Блок стены<input id="r-mwall" list="blocklist" type="text" spellcheck="false" autocomplete="off"></label>
               <label class="f">Блок пола<input id="r-mfloor" list="blocklist" type="text" spellcheck="false" autocomplete="off"></label>

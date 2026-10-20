@@ -138,7 +138,6 @@ export default {
 
   // ---- dicas ----
   "Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.": "Clique numa parede para abrir uma passagem. O tamanho da nova porta é definido à direita. A passagem também atravessa as paredes duplas das salas vizinhas.",
-  "Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам.": "Clique para selecionar, arraste para mover, as alças mudam o tamanho. Alt + arrastar copia. Clique duplo abre o esquema por blocos.",
   "Тяни от угла до угла.": "Arraste de um canto ao outro.",
   "Тяни от центра наружу: диаметр всегда нечётный.": "Arraste do centro para fora: o diâmetro é sempre ímpar.",
   "Тяни, чтобы двигать план. Колесо меняет масштаб.": "Arraste para mover o plano. A roda muda o zoom.",
@@ -462,4 +461,19 @@ export default {
   "Дубовые доски": "Tábuas de Carvalho",
   "Еловые доски": "Tábuas de Pinheiro",
   "Доски тёмного дуба": "Tábuas de Carvalho Escuro",
+  // ---- shapes ----
+  "Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам. У формы: тяни точки и кружки на сторонах, двойной клик по стене добавляет точку, по точке — удаляет.": "Clique para selecionar, arraste para mover, as alças mudam o tamanho. Alt + arrastar copia. Clique duplo abre o esquema por blocos. Numa forma: arraste os pontos e as bolinhas nos lados; clique duplo numa parede adiciona um ponto, num ponto o remove.",
+  "Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.": "Clique nos cantos dos blocos para colocar pontos. Shift faz linhas retas. Clique no primeiro ponto, dê clique duplo ou aperte Enter para terminar. Backspace remove o último ponto.",
+  "Комната любой формы": "Sala de qualquer forma",
+  "Форма по точкам (P)": "Forma por pontos (P)",
+  "Многоугольник": "Polígono",
+  "Стены между этой комнатой и соседними, где тоже включено, не строятся": "Não são construídas paredes entre esta sala e as vizinhas que também têm isto ligado",
+  "Срастаться с соседними": "Unir com as vizinhas",
+  "Тяни квадратики — точки, кружки на сторонах — стену целиком. Двойной клик по стене добавляет точку, по точке — удаляет её.": "Arraste os quadradinhos para mover pontos e as bolinhas nos lados para mover a parede inteira. Clique duplo numa parede adiciona um ponto; num ponto, o remove.",
+  "Точка {n}": "Ponto {n}",
+  "точек: {n}": "pontos: {n}",
+  "отрезок {l} бл.": "segmento {l} bl.",
+  "Enter — готово, Esc — отмена": "Enter — pronto, Esc — cancelar",
+  "У формы должно быть хотя бы 3 точки.": "A forma precisa de pelo menos 3 pontos.",
+  "многоугольник {w}×{d}, точек: {n}": "polígono {w}×{d}, {n} pontos",
 };

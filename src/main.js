@@ -1,5 +1,5 @@
 import { $t, pl, lang, locale, setLang, LANGS, brand, brandSlug, recordStatic, applyStatic, missing } from './i18n.js';
-import { circleRuns, area, wallOf, circleWall, wallSet, innerArea, innerDims, inside, hexA, lum, shade, wallCol } from './geometry.js';
+import { circleRuns, area, wallOf, wallSet, baseWalls, wallsOfMask, roomMask, maskKey, innerArea, innerDims, inside, polyFromAbs, absPts, outlinePts, polyArea, dropStraight, hexA, lum, shade, wallCol } from './geometry.js';
 import { nbtEncode, NB, gzipBytes } from './lib/nbt.js';
 
 recordStatic();
@@ -73,6 +73,23 @@ function updSaveSt(){const el=F('save-st');el.classList.toggle('bad',!storageOK)
 const roomsIn=(P,fid)=>P.rooms.filter(r=>r.floorId===fid);
 const roomColor=r=>r.color||TYPE[r.type]?.color||'#888888';
 const dims=r=>r.shape==='circle'?`⌀${r.w}`:`${r.w}×${r.d}`;
+const isRect=r=>r.shape!=='circle'&&r.shape!=='poly';
+/* Сращённые комнаты: стены между смежными комнатами с флагом join не строятся */
+const sigOf=r=>r.x+','+r.z+','+maskKey(r)+','+wallOf(r);
+function joinPartners(P,r){if(!r.join||!P)return [];const t=wallOf(r);
+  return P.rooms.filter(o=>o!==r&&o.join&&o.floorId===r.floorId&&o.x<=r.x+r.w+t&&o.x+o.w>=r.x-t&&o.z<=r.z+r.d+t&&o.z+o.d>=r.z-t);}
+const JW=new Map();
+function roomWalls(r,P){P=P||S;const t=wallOf(r);if(t<=0)return baseWalls(r);const ps=joinPartners(P,r);if(!ps.length)return baseWalls(r);
+  const k=sigOf(r)+'#'+ps.map(sigOf).join('#');let s=JW.get(k);if(s)return s;
+  s=wallsOfMask(roomMask(r),t,(i,j)=>ps.some(o=>inside(o,r.x+i,r.z+j)));if(JW.size>400)JW.clear();JW.set(k,s);return s;}
+const isWallCell=(r,x,z,P)=>roomWalls(r,P).has((x-r.x)+','+(z-r.z));
+function diffRuns(A,B){const out=[];A.forEach(([a,b])=>{let sg=[[a,b]];B.forEach(([c,d])=>{sg=sg.flatMap(([p,q])=>{if(d<=p||c>=q)return[[p,q]];const o=[];if(c>p)o.push([p,c]);if(d<q)o.push([d,q]);return o;});});out.push(...sg);});return out;}
+// Где писать название: у многоугольника — по самому широкому отрезку в середине формы
+function labelBox(r){if(r.shape!=='poly')return{x:r.x,z:r.z,w:r.w,d:r.d};const m=roomMask(r);let best=null,bs=-1;
+  m.rows.forEach((runs,j)=>runs.forEach(([a,b])=>{const sc=(b-a)*(1-Math.abs(j+.5-r.d/2)/r.d);if(sc>bs){bs=sc;best=[a,b,j];}}));
+  if(!best)return{x:r.x,z:r.z,w:r.w,d:r.d};const [a,b,j]=best,cx=(a+b)/2;let j0=j,j1=j;
+  const cov=jj=>(m.rows[jj]||[]).some(([p,q])=>p<=a&&q>=b);while(j0>0&&cov(j0-1))j0--;while(j1<r.d-1&&cov(j1+1))j1++;
+  return{x:r.x+a,z:r.z+j0,w:b-a,d:j1-j0+1};}
 function tokens(){const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
   return{canvas:g('--canvas'),grid:g('--grid'),chunk:g('--chunk'),accent:g('--accent'),muted:g('--muted'),ink:g('--ink'),raised:g('--raised'),panel:g('--panel'),line:g('--line')};}
 function sizeCanvas(c){const b=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=b.width,H=b.height,pw=Math.max(1,Math.round(W*dpr)),ph=Math.max(1,Math.round(H*dpr));
@@ -87,19 +104,19 @@ function seg(x1,z1,x2,z2){rc.ctx.moveTo(PX(x1),PZ(z1));rc.ctx.lineTo(PX(x2),PZ(z
 function edgeDiff(run,o,z){if(!o){seg(run[0],z,run[1],z);return;}if(run[0]<o[0])seg(run[0],z,Math.min(run[1],o[0]),z);if(run[1]>o[1])seg(Math.max(run[0],o[1]),z,run[1],z);}
 function ellipsize(ctx,t,mw){if(ctx.measureText(t).width<=mw)return t;let s=t;while(s.length>1&&ctx.measureText(s+'…').width>mw)s=s.slice(0,-1);return s.length>1?s+'…':'';}
 function drawWall(r,col){const t=wallOf(r);if(t<=0)return;const ctx=rc.ctx,s=rc.V.s;
-  const n=parseInt(col.slice(1),16),k=.6;ctx.fillStyle=`rgba(${Math.round((n>>16&255)*k)},${Math.round((n>>8&255)*k)},${Math.round((n&255)*k)},.95)`;ctx.beginPath();
-  if(r.shape==='circle'){const cells=circleWall(r.w,t);let j0=-1,i0=0,ip=0;
-    for(const [i,j] of cells){if(j===j0&&i===ip+1){ip=i;continue;}if(j0>=0)ctx.rect(PX(r.x+i0),PZ(r.z+j0),(ip-i0+1)*s,s);j0=j;i0=i;ip=i;}
-    if(j0>=0)ctx.rect(PX(r.x+i0),PZ(r.z+j0),(ip-i0+1)*s,s);}
-  else{const x=PX(r.x),z=PZ(r.z),W=r.w*s,D=r.d*s,T=t*s;
+  ctx.fillStyle=wallCol(col);ctx.beginPath();
+  if(isRect(r)&&!joinPartners(rc.P,r).length){const x=PX(r.x),z=PZ(r.z),W=r.w*s,D=r.d*s,T=t*s;
     if(r.w<=2*t||r.d<=2*t)ctx.rect(x,z,W,D);else{ctx.rect(x,z,W,T);ctx.rect(x,z+D-T,W,T);ctx.rect(x,z+T,T,D-2*T);ctx.rect(x+W-T,z+T,T,D-2*T);}}
+  else{const Wl=roomWalls(r,rc.P),m=roomMask(r);
+    m.rows.forEach((runs,j)=>runs.forEach(([a,b])=>{let i0=-1;for(let i=a;i<=b;i++){const w=i<b&&Wl.has(i+','+j);if(w&&i0<0)i0=i;if(!w&&i0>=0){ctx.rect(PX(r.x+i0),PZ(r.z+j),(i-i0)*s,s);i0=-1;}}}));}
   ctx.fill();}
 function drawRoom(r,mode,tk,arrow){
   const ctx=rc.ctx,col=roomColor(r),s=rc.V.s,ghost=mode==='ghost';
   ctx.save();
-  if(r.shape==='circle'){const runs=circleRuns(r);
-    if(!ghost){ctx.beginPath();runs.forEach((run,j)=>{if(run)ctx.rect(PX(run[0]),PZ(r.z+j),(run[1]-run[0])*s,s)});ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fill();if(mode==='room')drawWall(r,col);}
-    ctx.beginPath();runs.forEach((run,j)=>{if(!run)return;const z=r.z+j;seg(run[0],z,run[0],z+1);seg(run[1],z,run[1],z+1);edgeDiff(run,runs[j-1],z);edgeDiff(run,runs[j+1],z+1);});
+  if(!isRect(r)){const m=roomMask(r);
+    if(!ghost){ctx.beginPath();m.rows.forEach((runs,j)=>runs.forEach(([a,b])=>ctx.rect(PX(r.x+a),PZ(r.z+j),(b-a)*s,s)));ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fill();if(mode==='room')drawWall(r,col);}
+    ctx.beginPath();m.rows.forEach((runs,j)=>{const z=r.z+j;runs.forEach(([a,b])=>{seg(r.x+a,z,r.x+a,z+1);seg(r.x+b,z,r.x+b,z+1);});
+      diffRuns(runs,m.rows[j-1]||[]).forEach(([a,b])=>seg(r.x+a,z,r.x+b,z));diffRuns(runs,m.rows[j+1]||[]).forEach(([a,b])=>seg(r.x+a,z+1,r.x+b,z+1));});
   }else{
     if(!ghost){ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fillRect(PX(r.x),PZ(r.z),r.w*s,r.d*s);if(mode==='room')drawWall(r,col);}
     ctx.beginPath();ctx.rect(PX(r.x)+.5,PZ(r.z)+.5,r.w*s-1,r.d*s-1);}
@@ -107,12 +124,12 @@ function drawRoom(r,mode,tk,arrow){
   else if(mode==='draft'){ctx.setLineDash([6,4]);ctx.strokeStyle=tk.accent;ctx.lineWidth=2;}
   else{ctx.strokeStyle=shade(col,lum(col)>.7?.62:.7);ctx.lineWidth=s>=4?1.5:1;}
   ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
-  const bw=r.w*s,bh=r.d*s;
+  const lb=labelBox(r),bw=lb.w*s,bh=lb.d*s;
   if(bw>34&&bh>16){
-    ctx.beginPath();ctx.rect(PX(r.x),PZ(r.z),bw,bh);ctx.clip();
+    ctx.beginPath();ctx.rect(PX(lb.x),PZ(lb.z),bw,bh);ctx.clip();
     const ink=ghost?tk.muted:mode==='draft'?tk.ink:(lum(col)>.55?'#15181a':'#ffffff');
     const name=ghost?`${arrow||''} ${r.name||''}`.trim():r.name;
-    const fs=Math.max(10,Math.min(15,s*1.5)),cx=PX(r.x)+bw/2,cy=PZ(r.z)+bh/2,two=bh>fs*2.8&&name;
+    const fs=Math.max(10,Math.min(15,s*1.5)),cx=PX(lb.x)+bw/2,cy=PZ(lb.z)+bh/2,two=bh>fs*2.8&&name;
     ctx.fillStyle=ink;ctx.textAlign='center';ctx.textBaseline='middle';
     if(ghost)ctx.globalAlpha=.6;
     if(name){ctx.font=`${ghost?500:600} ${fs}px "Golos Text", system-ui, sans-serif`;ctx.fillText(ellipsize(ctx,name,bw-8),cx,two?cy-fs*.6:cy);}
@@ -121,6 +138,12 @@ function drawRoom(r,mode,tk,arrow){
   ctx.restore();
 }
 function cornerPts(r){const x0=r.x,z0=r.z,x1=r.x+r.w-1,z1=r.z+r.d-1;
+  if(r.shape==='poly'){const m=roomMask(r);
+    // клетки вокруг угла: [смещение, куда смотрит подпись]
+    const C=[[0,0,'nw'],[-1,0,'ne'],[0,-1,'sw'],[-1,-1,'se']],OPP={nw:'se',ne:'sw',sw:'ne',se:'nw'};
+    return (r.pts||[]).map(([px,pz],n)=>{const ins=C.filter(([di,dj])=>m.has(px+di,pz+dj));let c=ins[0]||C[0];
+      if(ins.length===3){const out=C.find(q=>!ins.includes(q));c=C.find(q=>q[2]===OPP[out[2]]);}
+      return [$t('Точка {n}',{n:n+1}),r.x+px+c[0],r.z+pz+c[1],c[2]];});}
   if(r.shape==='circle'){const cx=r.x+Math.floor((r.w-1)/2),cz=r.z+Math.floor((r.d-1)/2);
     return [[$t('Север'),cx,z0,'n'],[$t('Юг'),cx,z1,'s'],[$t('Запад'),x0,cz,'w'],[$t('Восток'),x1,cz,'e'],[$t('Центр'),cx,cz,'c']];}
   return [[$t('Северо-запад'),x0,z0,'nw'],[$t('Северо-восток'),x1,z0,'ne'],[$t('Юго-запад'),x0,z1,'sw'],[$t('Юго-восток'),x1,z1,'se']];}
@@ -137,7 +160,7 @@ function drawCornerTags(r,P,tk){const ctx=rc.ctx,s=rc.V.s;if(r.w*s<90||r.d*s<60)
 function handlesOf(r){const x0=PX(r.x),z0=PZ(r.z),x1=PX(r.x+r.w),z1=PZ(r.z+r.d),xm=(x0+x1)/2,zm=(z0+z1)/2;
   return {nw:[x0,z0],n:[xm,z0],ne:[x1,z0],e:[x1,zm],se:[x1,z1],s:[xm,z1],sw:[x0,z1],w:[x0,zm]};}
 function paint(ctx,W,H,V,P,fid,o={}){
-  rc={ctx,W,H,V};const tk=o.tk||tokens(),s=V.s;
+  rc={ctx,W,H,V,P};const tk=o.tk||tokens(),s=V.s;
   ctx.fillStyle=tk.canvas;ctx.fillRect(0,0,W,H);
   const a={x:-W/2/s+V.cx,z:-H/2/s+V.cz},b={x:W/2/s+V.cx,z:H/2/s+V.cz};
   if(s>=5){ctx.beginPath();for(let x=Math.floor(a.x);x<=b.x;x++){const p=Math.round(PX(x))+.5;ctx.moveTo(p,0);ctx.lineTo(p,H);}
@@ -154,8 +177,18 @@ function paint(ctx,W,H,V,P,fid,o={}){
     ctx.fillStyle=tk.raised;ctx.globalAlpha=.95;ctx.fillRect(x,z,w,h);ctx.globalAlpha=1;ctx.strokeStyle=tk.accent;ctx.lineWidth=sel?3:1.5;ctx.strokeRect(x+.75,z+.75,w-1.5,h-1.5);
     if(s>=6){ctx.beginPath();if(d.axis==='x'){ctx.moveTo(x+3,z+h/2);ctx.lineTo(x+w-3,z+h/2);}else{ctx.moveTo(x+w/2,z+3);ctx.lineTo(x+w/2,z+h-3);}ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);}});
   if(o.draft)drawRoom(o.draft,'draft',tk);
+  if(o.polyDraft&&o.polyDraft.pts.length){const pd=o.polyDraft.pts,hv=o.polyDraft.hover;
+    if(pd.length>=3){const pr=polyFromAbs(pd);if(pr.pts.length>=3)drawRoom({...pr,shape:'poly',type:ui.lastType,color:null,name:''},'draft',tk);}
+    ctx.save();ctx.strokeStyle=tk.accent;ctx.lineWidth=2;ctx.beginPath();pd.forEach(([x,z],k)=>k?ctx.lineTo(PX(x),PZ(z)):ctx.moveTo(PX(x),PZ(z)));
+    if(hv)ctx.lineTo(PX(hv[0]),PZ(hv[1]));ctx.stroke();
+    if(pd.length>=3){ctx.setLineDash([4,4]);ctx.globalAlpha=.6;ctx.beginPath();ctx.moveTo(PX((hv||pd[pd.length-1])[0]),PZ((hv||pd[pd.length-1])[1]));ctx.lineTo(PX(pd[0][0]),PZ(pd[0][1]));ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;}
+    pd.forEach(([x,z],k)=>{ctx.fillStyle=k===0?tk.accent:tk.raised;ctx.fillRect(PX(x)-4,PZ(z)-4,8,8);ctx.strokeRect(PX(x)-4,PZ(z)-4,8,8);});ctx.restore();}
   const r=o.sel;
-  if(r){ctx.strokeStyle=tk.accent;ctx.lineWidth=2;ctx.setLineDash(r.shape==='circle'?[6,4]:[]);ctx.strokeRect(PX(r.x)-1,PZ(r.z)-1,r.w*s+2,r.d*s+2);ctx.setLineDash([]);
+  if(r&&r.shape==='poly'){const ap=absPts(r);ctx.strokeStyle=tk.accent;ctx.lineWidth=2;ctx.beginPath();ap.forEach(([x,z],k)=>k?ctx.lineTo(PX(x),PZ(z)):ctx.moveTo(PX(x),PZ(z)));ctx.closePath();ctx.stroke();
+    ap.forEach(([x,z],k)=>{const [x2,z2]=ap[(k+1)%ap.length],mx=PX((x+x2)/2),mz=PZ((z+z2)/2);ctx.beginPath();ctx.arc(mx,mz,4,0,Math.PI*2);ctx.fillStyle=tk.accent;ctx.fill();});
+    ap.forEach(([x,z])=>{ctx.fillStyle=tk.raised;ctx.fillRect(PX(x)-4,PZ(z)-4,8,8);ctx.strokeRect(PX(x)-4,PZ(z)-4,8,8);});
+    if(o.tags)drawCornerTags(r,P,tk);}
+  else if(r){ctx.strokeStyle=tk.accent;ctx.lineWidth=2;ctx.setLineDash(r.shape==='circle'?[6,4]:[]);ctx.strokeRect(PX(r.x)-1,PZ(r.z)-1,r.w*s+2,r.d*s+2);ctx.setLineDash([]);
     Object.values(handlesOf(r)).forEach(([hx,hz])=>{ctx.fillStyle=tk.raised;ctx.fillRect(hx-4,hz-4,8,8);ctx.strokeRect(hx-4,hz-4,8,8);});
     if(o.tags)drawCornerTags(r,P,tk);}
 }
@@ -236,16 +269,33 @@ let act=null,pinch=null,spaceDown=false;const ptrs=new Map();
 function draw(){if(F('v-edit').hidden||!S)return;const o=sizeCanvas(cv);EW=o.W;EH=o.H;
   if(ui.view==='section'){drawSection(o.ctx,EW,EH);return;}const g=ghostFloor(),r=selRoom();
   paint(o.ctx,EW,EH,V,S,S.cur,{ghostId:g&&g.id,ghostArrow:ui.ghost==='below'?'↓':'↑',
-    draft:act&&act.type==='draw'&&act.draft?{...act.draft,type:ui.lastType,color:null,name:''}:null,sel:r&&r.floorId===S.cur?r:null,tags:true,selDoor:ui.sel?null:ui.selDoor});}
+    draft:act&&act.type==='draw'&&act.draft?{...act.draft,type:ui.lastType,color:null,name:''}:null,sel:r&&r.floorId===S.cur?r:null,tags:true,selDoor:ui.sel?null:ui.selDoor,polyDraft:ui.tool==='poly'&&ui.pd?{pts:ui.pd,hover:ui.pdHover}:null});}
 function handles(r){const x0=EX(r.x),z0=EZ(r.z),x1=EX(r.x+r.w),z1=EZ(r.z+r.d),xm=(x0+x1)/2,zm=(z0+z1)/2;
   return {nw:[x0,z0],n:[xm,z0],ne:[x1,z0],e:[x1,zm],se:[x1,z1],s:[xm,z1],sw:[x0,z1],w:[x0,zm]};}
 const pos=e=>{const b=cv.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top}};
 const cellAt=p=>{const w=toW(p.x,p.y);return{x:Math.floor(w.x),z:Math.floor(w.z)}};
 function hitRoom(c){const rs=roomsOf(S.cur);for(let i=rs.length-1;i>=0;i--)if(inside(rs[i],c.x,c.z))return rs[i];return null;}
 function hitHandle(r,p,tol){const hs=handles(r);for(const k in hs){const [hx,hz]=hs[k];if(Math.abs(p.x-hx)<=tol&&Math.abs(p.y-hz)<=tol)return k;}return null;}
+const cornerAt=p=>{const w=toW(p.x,p.y);return{x:Math.round(w.x),z:Math.round(w.z)}};
+// Многоугольник: попадание в вершину или в середину стороны (экранные пиксели)
+function polyHit(r,p,tol){const ap=absPts(r);
+  for(let i=0;i<ap.length;i++){const [x,z]=ap[i];if(Math.abs(EX(x)-p.x)<=tol&&Math.abs(EZ(z)-p.y)<=tol)return{k:'v',i};}
+  for(let i=0;i<ap.length;i++){const [x1,z1]=ap[i],[x2,z2]=ap[(i+1)%ap.length];if(Math.hypot(EX((x1+x2)/2)-p.x,EZ((z1+z2)/2)-p.y)<=tol)return{k:'e',i};}
+  return null;}
+function nearEdge(r,p,tol){const ap=absPts(r);let best=-1,bd=tol;
+  for(let i=0;i<ap.length;i++){const [x1,z1]=ap[i],[x2,z2]=ap[(i+1)%ap.length],ax=EX(x1),az=EZ(z1),bx=EX(x2),bz=EZ(z2);
+    const L=(bx-ax)**2+(bz-az)**2||1,t=Math.max(0,Math.min(1,((p.x-ax)*(bx-ax)+(p.y-az)*(bz-az))/L)),dd=Math.hypot(ax+t*(bx-ax)-p.x,az+t*(bz-az)-p.y);
+    if(dd<=bd){bd=dd;best=i;}}
+  return best;}
+function straight(last,k){const dx=k.x-last[0],dz=k.z-last[1];if(Math.abs(dx)>2*Math.abs(dz))return[k.x,last[1]];if(Math.abs(dz)>2*Math.abs(dx))return[last[0],k.z];
+  const m=Math.max(Math.abs(dx),Math.abs(dz));return[last[0]+Math.sign(dx)*m,last[1]+Math.sign(dz)*m];}
+function finishPoly(){const pd=ui.pd;ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;if(!pd||pd.length<3){req();return;}
+  const pr=polyFromAbs(pd);if(pr.pts.length<3||Math.abs(polyArea(pr.pts))<1){req();return;}
+  snap();const t=ui.lastType,sh=$t(TYPE[t].short),r=R(S.cur,`${sh} ${maxNum(sh)+1}`,t,'poly',pr.x,pr.z,pr.w,pr.d);r.pts=pr.pts;
+  S.rooms.push(r);ui.sel=r.id;persist();setTool('select');renderAll();}
 const CUR={nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize'};
 function setCursor(){if(ui.view==='section'){cv.style.cursor='grab';return;}cv.style.cursor=ui.tool==='hand'||spaceDown?'grab':(ui.tool==='select'?'default':'crosshair');}
-function cancelAct(){if(!act)return;if((act.type==='move'||act.type==='resize'||act.type==='dmove')&&act.snapped){setS(JSON.parse(undoS.pop()));updUndo();}act=null;}
+function cancelAct(){if(!act)return;if((act.type==='move'||act.type==='resize'||act.type==='dmove'||act.type==='vmove'||act.type==='emove')&&act.snapped){setS(JSON.parse(undoS.pop()));updUndo();}act=null;}
 
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
@@ -262,13 +312,21 @@ cv.addEventListener('pointerdown',e=>{
   if(ui.tool==='select'){
     const dh=hitDoor(c);if(dh){ui.selDoor=dh.id;ui.sel=null;act={type:'dmove',id:dh.id,c0:c,o:{x:dh.x,z:dh.z},snapped:false};renderInspector();renderRoomList();req();return;}
     const r=selRoom(),tol=e.pointerType==='touch'?16:7;
-    if(r&&r.floorId===S.cur){const h=hitHandle(r,p,tol);if(h){act={type:'resize',h,id:r.id,o:{x:r.x,z:r.z,w:r.w,d:r.d},snapped:false};return;}}
+    if(r&&r.floorId===S.cur&&r.shape==='poly'){const ph=polyHit(r,p,tol);if(ph){act={type:ph.k==='v'?'vmove':'emove',i:ph.i,id:r.id,o:{abs:absPts(r)},c0:cornerAt(p),snapped:false};return;}}
+    else if(r&&r.floorId===S.cur){const h=hitHandle(r,p,tol);if(h){act={type:'resize',h,id:r.id,o:{x:r.x,z:r.z,w:r.w,d:r.d},snapped:false};return;}}
     const hit=hitRoom(c);
     if(hit&&e.altKey){snap();const cp={...hit,id:uid('r'),name:nextName(hit.name)};S.rooms.push(cp);ui.sel=cp.id;act={type:'move',id:cp.id,c0:c,o:{x:cp.x,z:cp.z},snapped:true};renderAll();return;}
     if(hit){ui.sel=hit.id;act={type:'move',id:hit.id,c0:c,o:{x:hit.x,z:hit.z},snapped:false};renderInspector();renderRoomList();req();return;}
     ui.sel=null;renderInspector();renderRoomList();act={type:'pan',p0:p,v0:{...V}};req();return;}
+  if(ui.tool==='poly'){const k=cornerAt(p),pd=ui.pd||(ui.pd=[]);
+    if(pd.length>=3&&Math.hypot(EX(pd[0][0])-p.x,EZ(pd[0][1])-p.y)<=10){finishPoly();return;}
+    const last=pd[pd.length-1],q=e.shiftKey&&last?straight(last,k):[k.x,k.z];
+    if(!last||last[0]!==q[0]||last[1]!==q[1])pd.push(q);polyReadout();req();return;}
   act={type:'draw',shape:ui.tool,c0:c,draft:null};updDraft(c);req();
 });
+function polyReadout(){const pd=ui.pd||[],h=ui.pdHover;if(!pd.length){return;}const last=pd[pd.length-1];
+  const len=h?Math.round(Math.hypot(h[0]-last[0],h[1]-last[1])*10)/10:0;
+  F('readout').textContent=$t('точек: {n}',{n:pd.length})+(h?' · '+$t('отрезок {l} бл.',{l:len}):'')+' · '+$t('Enter — готово, Esc — отмена');}
 function updDraft(c){const a=act.c0;
   if(act.shape==='rect')act.draft={shape:'rect',x:Math.min(a.x,c.x),z:Math.min(a.z,c.z),w:Math.abs(c.x-a.x)+1,d:Math.abs(c.z-a.z)+1};
   else{const rad=Math.max(Math.abs(c.x-a.x),Math.abs(c.z-a.z)),d=2*rad+1;act.draft={shape:'circle',x:a.x-rad,z:a.z-rad,w:d,d};}
@@ -282,7 +340,21 @@ cv.addEventListener('pointermove',e=>{
   if(pinch&&ptrs.size>=2){const [a,b]=[...ptrs.values()],m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};const s=clampS(pinch.s0*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d0);
     V.s=s;V.cx=pinch.w0.x-(m.x-EW/2)/s;V.cz=pinch.w0.z-(m.y-EH/2)/s;req();return;}
   const c=cellAt(p);hoverCell=c;
-  if(!act){showReadout(c);if(ui.tool==='select'&&!spaceDown){const r=selRoom();const h=r&&r.floorId===S.cur&&hitHandle(r,p,7);cv.style.cursor=h?CUR[h]:(hitRoom(c)?'move':'default');}return;}
+  if(!act){
+    if(ui.tool==='poly'&&ui.pd&&ui.pd.length){const k=cornerAt(p),last=ui.pd[ui.pd.length-1];ui.pdHover=e.shiftKey?straight(last,k):[k.x,k.z];polyReadout();req();return;}
+    showReadout(c);if(ui.tool==='select'&&!spaceDown){const r=selRoom(),here=r&&r.floorId===S.cur;
+      const h=here&&(r.shape==='poly'?(polyHit(r,p,7)?'ph':null):hitHandle(r,p,7));cv.style.cursor=h==='ph'?'grab':h?CUR[h]:(hitRoom(c)?'move':'default');}return;}
+  if(act.type==='vmove'||act.type==='emove'){const k=cornerAt(p),dx=k.x-act.c0.x,dz=k.z-act.c0.z,rr=S.rooms.find(x=>x.id===act.id);if(!rr)return;
+    if(!act.snapped&&!dx&&!dz)return;
+    const abs=act.o.abs.map(q=>q.slice());let np;
+    if(act.type==='vmove'){abs[act.i]=[abs[act.i][0]+dx,abs[act.i][1]+dz];np=abs;}
+    else{const i=act.i,j=(i+1)%abs.length,A=abs[i],B=abs[j],hor=A[1]===B[1],ver=A[0]===B[0];
+      if(hor||ver){const mx=hor?0:dx,mz=hor?dz:0;if(!mx&&!mz)return;const A2=[A[0]+mx,A[1]+mz],B2=[B[0]+mx,B[1]+mz];
+        np=j===0?abs.concat([A2,B2]):abs.slice(0,i+1).concat([A2,B2],abs.slice(j));
+        const ia=i,ib=j===0?0:i+3;np=dropStraight(np,[ia,ib]);}
+      else{abs[i]=[A[0]+dx,A[1]+dz];abs[j]=[B[0]+dx,B[1]+dz];np=abs;}}
+    const pr=polyFromAbs(np);if(pr.pts.length<3||Math.abs(polyArea(pr.pts))<1)return;
+    if(!act.snapped){snap();act.snapped=true;}Object.assign(rr,pr);renderInspector();req();return;}
   if(act.type==='pan'){V.cx=act.v0.cx-(p.x-act.p0.x)/V.s;V.cz=act.v0.cz-(p.y-act.p0.y)/V.s;req();return;}
   if(act.type==='draw'){updDraft(c);req();return;}
   if(act.type==='dmove'){const dx=c.x-act.c0.x,dz=c.z-act.c0.z;if(!act.snapped&&(dx||dz)){snap();act.snapped=true;}if(!act.snapped)return;
@@ -334,19 +406,17 @@ function cutOf(){if(!S.cut)S.cut={dir:'s',x:0,z:0};return S.cut;}
 const axisOf=d=>(d==='s'||d==='n')?'x':'z';
 const mOf=d=>(d==='s'||d==='w')?1:-1;
 const DIRN={s:'с юга',n:'с севера',w:'с запада',e:'с востока'};
-function cutSpan(r,pos,ax){const t=wallOf(r),walls=[];
-  if(r.shape==='circle'){const k=pos-(ax==='x'?r.z:r.x);if(k<0||k>=r.w)return null;const run=circleRuns(r)[k];if(!run)return null;
-    const off=ax==='x'?0:r.z-r.x,a=run[0]+off,b=run[1]+off,base=ax==='x'?r.x:r.z;
-    if(t>0){const ws=wallSet(r.w,t);for(let u=a;u<b;u++){const i=u-base;if(ws.has(ax==='x'?i+','+k:k+','+i))walls.push(u);}}
-    return {a,b,walls};}
-  const k=ax==='x'?pos-r.z:pos-r.x,D=ax==='x'?r.d:r.w;if(k<0||k>=D)return null;
-  const a=ax==='x'?r.x:r.z,b=a+(ax==='x'?r.w:r.d);
-  if(t>0){if(k<t||k>=D-t)for(let u=a;u<b;u++)walls.push(u);else{for(let u=a;u<Math.min(b,a+t);u++)walls.push(u);for(let u=Math.max(a,b-t);u<b;u++)walls.push(u);}}
-  return {a,b,walls};}
+function cutSpan(r,pos,ax){const m=roomMask(r),W=roomWalls(r),out=[];
+  if(ax==='x'){const j=pos-r.z;if(j<0||j>=r.d)return out;
+    m.rows[j].forEach(([a,b])=>{const walls=[];for(let i=a;i<b;i++)if(W.has(i+','+j))walls.push(r.x+i);out.push({a:r.x+a,b:r.x+b,walls});});return out;}
+  const i=pos-r.x;if(i<0||i>=r.w)return out;let s=-1;
+  for(let j=0;j<=r.d;j++){const inn=j<r.d&&m.has(i,j);if(inn&&s<0)s=j;
+    if(!inn&&s>=0){const walls=[];for(let q=s;q<j;q++)if(W.has(i+','+q))walls.push(r.z+q);out.push({a:r.z+s,b:r.z+j,walls});s=-1;}}
+  return out;}
 function isBehind(r,d,pos){return d==='s'?r.z+r.d-1<pos:d==='n'?r.z>pos:d==='w'?r.x>pos:r.x+r.w-1<pos;}
 function secItems(){const c=cutOf(),ax=axisOf(c.dir),pos=ax==='x'?c.z:c.x,fl=sorted(),cut=[],back=[];
-  fl.forEach((f,fi)=>roomsOf(f.id).forEach(r=>{const sp=cutSpan(r,pos,ax),y0=inY0(f),y1=y0+(r.h||f.height);
-    if(sp)cut.push({r,f,fi,a:sp.a,b:sp.b,walls:sp.walls,y0,y1,open:false,merged:false});
+  fl.forEach((f,fi)=>roomsOf(f.id).forEach(r=>{const sps=cutSpan(r,pos,ax),y0=inY0(f),y1=y0+(r.h||f.height);
+    if(sps.length)sps.forEach(sp=>cut.push({r,f,fi,a:sp.a,b:sp.b,walls:sp.walls,y0,y1,open:false,merged:false}));
     else if(isBehind(r,c.dir,pos))back.push({a:ax==='x'?r.x:r.z,b:ax==='x'?r.x+r.w:r.z+r.d,y0,y1});}));
   cut.forEach(it=>{if(it.r.type!=='atrium'||!fl[it.fi+1])return;const lo=fl[it.fi+1];
     const cov=o=>o.f===lo&&o.r.type==='atrium'&&o.a<=it.a&&o.b>=it.b&&o.y1===it.f.y;
@@ -387,8 +457,9 @@ function drawSection(ctx,W,H,opt={}){
   ctx.globalAlpha=1;
   cut.forEach(it=>{if(it.r.id!==ui.sel)return;const [h0,h1]=hs(it.a,it.b);ctx.strokeStyle=tk.accent;ctx.lineWidth=2;
     ctx.strokeRect(SX(h0)-1,SY(it.y1)-1,(h1-h0)*s+2,(it.y1-(it.open?it.f.y:it.y0))*s+2);});
-  cut.forEach(it=>{if(it.merged)return;const col=roomColor(it.r),[h0,h1]=hs(it.a,it.b),x0=SX(h0),bw=(h1-h0)*s,top=SY(it.y1),bh=SY(it.open?it.f.y:it.y0)-top;
-    if(bw<54||bh<18)return;ctx.save();ctx.beginPath();ctx.rect(x0,top,bw,bh);ctx.clip();
+  const taken=[];// сращённые комнаты в разрезе накладываются: подпись получает самая широкая
+  cut.slice().sort((p,q)=>(q.b-q.a)-(p.b-p.a)).forEach(it=>{if(it.merged)return;const col=roomColor(it.r),[h0,h1]=hs(it.a,it.b),x0=SX(h0),bw=(h1-h0)*s,top=SY(it.y1),bh=SY(it.open?it.f.y:it.y0)-top;
+    if(bw<54||bh<18)return;if(taken.some(o=>o.f===it.f&&o.y1===it.y1&&it.a<o.b&&it.b>o.a))return;taken.push(it);ctx.save();ctx.beginPath();ctx.rect(x0,top,bw,bh);ctx.clip();
     ctx.fillStyle=lum(col)>.55?'#15181a':'#ffffff';ctx.textAlign='left';ctx.textBaseline='top';
     ctx.font='600 12px "Golos Text", system-ui, sans-serif';ctx.fillText(ellipsize(ctx,it.r.name||'',bw-12),x0+6+(it.walls.length&&it.walls[0]===it.a?s:0),top+5);
     if(bh>=34){ctx.globalAlpha=.85;ctx.font='500 11px "JetBrains Mono", ui-monospace, monospace';let lo=it;while(lo.lower)lo=lo.lower;
@@ -476,7 +547,7 @@ function renderInspector(){
   const f=floor(r.floorId);
   setVal('r-name',r.name);setVal('r-type',r.type);setVal('r-shape',r.shape);setVal('r-x',r.x);setVal('r-z',r.z);setVal('r-w',r.w);setVal('r-d',r.d);
   setVal('r-h',r.h??'');F('r-h').placeholder=f.height;setVal('r-color',roomColor(r));setVal('r-notes',r.notes||'');
-  F('r-d').disabled=r.shape==='circle';F('l-w').textContent=r.shape==='circle'?$t('Диаметр'):$t('Ширина (X)');F('r-color-reset').hidden=!r.color;
+  F('r-d').disabled=r.shape==='circle'||r.shape==='poly';F('r-w').disabled=r.shape==='poly';F('r-join').checked=!!r.join;F('r-polyhelp').hidden=r.shape!=='poly';F('l-w').textContent=r.shape==='circle'?$t('Диаметр'):$t('Ширина (X)');F('r-color-reset').hidden=!r.color;
   const sel=F('r-floor');if(document.activeElement!==sel){sel.innerHTML='';sorted().forEach(fl=>{const o=document.createElement('option');o.value=fl.id;o.textContent=fl.name;sel.appendChild(o);});sel.value=r.floorId;}
   const wx=S.origin.x,wz=S.origin.z,o=wx||wz;
   F('r-range').textContent=`X ${fmt(r.x)}…${fmt(r.x+r.w-1)} · Z ${fmt(r.z)}…${fmt(r.z+r.d-1)}`+(o?' · '+$t('в мире X {x}, Z {z}',{x:`${fmt(wx+r.x)}…${fmt(wx+r.x+r.w-1)}`,z:`${fmt(wz+r.z)}…${fmt(wz+r.z+r.d-1)}`}):'')+' · '+$t('стоишь Y {a} · потолок Y {b}',{a:fmt(inY0(f)),b:fmt(inY1(f,r.h))});
@@ -501,8 +572,8 @@ function renderClip(){F('clip').hidden=!clip;if(!clip)return;
   F('clip-name').textContent=$t('В буфере: {name}',{name:clip.name||$t('комната')})+' · '+dims(clip)+(clip.floorId!==S.cur?' · '+$t('встанет на те же X и Z'):'');}
 function renderAll(){if(!S)return;renderProject();renderFloors();renderTypes();renderInspector();renderRoomList();renderClip();renderSecBar();updUndo();setCursor();req();}
 
-const HINTS={door:'Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.',select:'Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам.',rect:'Тяни от угла до угла.',circle:'Тяни от центра наружу: диаметр всегда нечётный.',hand:'Тяни, чтобы двигать план. Колесо меняет масштаб.'};
-function setTool(t){ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=$t(HINTS[t]);setCursor();
+const HINTS={poly:'Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.',door:'Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.',select:'Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик — схема по блокам. У формы: тяни точки и кружки на сторонах, двойной клик по стене добавляет точку, по точке — удаляет.',rect:'Тяни от угла до угла.',circle:'Тяни от центра наружу: диаметр всегда нечётный.',hand:'Тяни, чтобы двигать план. Колесо меняет масштаб.'};
+function setTool(t){if(t!=='poly'&&ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;}ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=$t(HINTS[t]);setCursor();
   if(t==='door'&&S){ui.sel=null;ui.selDoor=null;renderRoomList();req();}if(S)renderInspector();}
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 F('zin').onclick=()=>zoomBy(1.25);F('zout').onclick=()=>zoomBy(.8);F('zfit').onclick=fitView;
@@ -516,10 +587,13 @@ function bind(id,fn,after){const el=F(id);
 const withRoom=fn=>v=>{const r=selRoom();if(r)fn(r,v);};
 bind('r-name',withRoom((r,v)=>r.name=v));
 bind('r-type',withRoom((r,v)=>{r.type=v;r.color=null;}));
-bind('r-shape',withRoom((r,v)=>{r.shape=v;if(v==='circle'){const s=Math.max(r.w,r.d);r.w=r.d=s;}}));
+bind('r-shape',withRoom((r,v)=>{if(v===(r.shape||'rect'))return;
+  if(v==='poly'){const pr=polyFromAbs(outlinePts(r).map(([x,z])=>[x+r.x,z+r.z]),true);Object.assign(r,pr);r.shape='poly';return;}
+  delete r.pts;r.shape=v;if(v==='circle'){let s=Math.max(r.w,r.d);if(s%2===0)s++;r.w=r.d=s;}}));
 bind('r-x',withRoom((r,v)=>r.x=num(v,r.x)));bind('r-z',withRoom((r,v)=>r.z=num(v,r.z)));
-bind('r-w',withRoom((r,v)=>{r.w=Math.max(1,Math.min(1000,num(v,r.w)));if(r.shape==='circle')r.d=r.w;}));
-bind('r-d',withRoom((r,v)=>r.d=Math.max(1,Math.min(1000,num(v,r.d)))));
+bind('r-w',withRoom((r,v)=>{if(r.shape==='poly')return;r.w=Math.max(1,Math.min(1000,num(v,r.w)));if(r.shape==='circle')r.d=r.w;}));
+bind('r-d',withRoom((r,v)=>{if(r.shape==='poly'||r.shape==='circle')return;r.d=Math.max(1,Math.min(1000,num(v,r.d)));}));
+F('r-join').addEventListener('change',e=>{const r=selRoom();if(!r)return;snap();if(e.target.checked)r.join=true;else delete r.join;persist();renderAll();});
 bind('r-wall',withRoom((r,v)=>{r.wall=Math.max(0,Math.min(8,num(v,1)));}));
 bind('r-h',withRoom((r,v)=>{const n=num(v,null);r.h=n&&n>0?n:null;}));
 bind('r-color',withRoom((r,v)=>r.color=v.toLowerCase()===TYPE[r.type].color.toLowerCase()?null:v));
@@ -577,11 +651,11 @@ function exportData(){const o=S.origin,hasO=o.x||o.z;
   return {format:'underground-plan/1',project:S.name,units:'blocks',legend:legend(),origin_world:{x:o.x,z:o.z},auto_y:st.auto?{top_floor_y:st.top}:null,
     materials:{wall:shortB(matOf(null,null,'wall')),floor:shortB(matOf(null,null,'floor')),ceil:shortB(matOf(null,null,'ceil'))},
     floors:sorted().map(f=>({name:f.name,y_floor:f.y,floor_thickness:slabOf(f),stand_y:inY0(f),height:f.height,ceiling_y:inY1(f),interior_y:[inY0(f),inY1(f)],materials:own(f),doors:doorsOf(f),rooms:roomsOf(f.id).map(r=>{
-      const e={name:r.name,type:r.type,type_label:$t(TYPE[r.type].label),shape:r.shape,size:dims(r).replace('⌀','diameter '),x_from:r.x,x_to:r.x+r.w-1,z_from:r.z,z_to:r.z+r.d-1,wall:wallOf(r),inner_size:innerDims(r).replace('⌀','diameter '),height:r.h||f.height,ceiling_y:inY1(f,r.h),wall_block:shortB(matOf(r,f,'wall')),floor_block:shortB(matOf(r,f,'floor')),ceiling_block:shortB(matOf(r,f,'ceil')),materials:own(r),floor_blocks:innerArea(r),color:roomColor(r)};
-      if(hasO)e.world={x_from:o.x+r.x,x_to:o.x+r.x+r.w-1,z_from:o.z+r.z,z_to:o.z+r.z+r.d-1};if(r.notes)e.notes=r.notes;return e;})}))};}
+      const e={name:r.name,type:r.type,type_label:$t(TYPE[r.type].label),shape:r.shape||'rect',size:dims(r).replace('⌀','diameter '),x_from:r.x,x_to:r.x+r.w-1,z_from:r.z,z_to:r.z+r.d-1,wall:wallOf(r),inner_size:innerDims(r).replace('⌀','diameter '),height:r.h||f.height,ceiling_y:inY1(f,r.h),wall_block:shortB(matOf(r,f,'wall')),floor_block:shortB(matOf(r,f,'floor')),ceiling_block:shortB(matOf(r,f,'ceil')),materials:own(r),floor_blocks:innerArea(r),color:roomColor(r)};
+      if(hasO)e.world={x_from:o.x+r.x,x_to:o.x+r.x+r.w-1,z_from:o.z+r.z,z_to:o.z+r.z+r.d-1};if(r.shape==='poly')e.points=absPts(r);if(r.join)e.join=true;if(r.notes)e.notes=r.notes;return e;})}))};}
 function exportText(){const d=exportData(),L=[$t('Проект: {name}',{name:d.project}),legend(),$t('Центр (лифт) в мире: X {x}, Z {z}',{x:d.origin_world.x,z:d.origin_world.z}),''];
   d.floors.forEach(f=>{L.push($t('== {name} (плита пола Y {y}, толщина {t}, стоишь на Y {s}, потолок Y {c}, высота {h}) ==',{name:f.name,y:f.y_floor,t:f.floor_thickness,s:f.stand_y,c:f.ceiling_y,h:f.height}));if(!f.rooms.length)L.push($t('  пусто'));
-    f.rooms.forEach(r=>L.push(`- ${r.name} [${r.type_label}] `+(r.shape==='circle'?$t('круг ⌀{d}',{d:r.x_to-r.x_from+1}):$t('прямоугольник {w}×{d}',{w:r.x_to-r.x_from+1,d:r.z_to-r.z_from+1}))+', '+$t('X {x0}…{x1}, Z {z0}…{z1}, стена {w} (внутри {i}), высота {h}, потолок Y {c}',{x0:r.x_from,x1:r.x_to,z0:r.z_from,z1:r.z_to,w:r.wall,i:r.inner_size.replace('diameter ','⌀'),h:r.height,c:r.ceiling_y})+(r.notes?' — '+r.notes:'')));L.push('');});
+    f.rooms.forEach(r=>L.push(`- ${r.name} [${r.type_label}] `+(r.shape==='circle'?$t('круг ⌀{d}',{d:r.x_to-r.x_from+1}):r.shape==='poly'?$t('многоугольник {w}×{d}, точек: {n}',{w:r.x_to-r.x_from+1,d:r.z_to-r.z_from+1,n:(r.points||[]).length}):$t('прямоугольник {w}×{d}',{w:r.x_to-r.x_from+1,d:r.z_to-r.z_from+1}))+', '+$t('X {x0}…{x1}, Z {z0}…{z1}, стена {w} (внутри {i}), высота {h}, потолок Y {c}',{x0:r.x_from,x1:r.x_to,z0:r.z_from,z1:r.z_to,w:r.wall,i:r.inner_size.replace('diameter ','⌀'),h:r.height,c:r.ceiling_y})+(r.notes?' — '+r.notes:'')));L.push('');});
   return L.join('\n');}
 const TR={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya',і:'i',ї:'yi',є:'ye',ґ:'g'};
 const slug=t=>([...(t||'plan').toLowerCase()].map(c=>TR[c]??c).join('').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'plan');
@@ -637,11 +711,12 @@ function fromExport(d){
     const rmat=m=>m&&typeof m==='object'&&(m.wall||m.floor||m.ceil)?{wall:String(m.wall||''),floor:String(m.floor||''),ceil:String(m.ceil||'')}:undefined,doors=[];
     (d.floors||[]).forEach(f=>{const id=uid('f'),fh=Math.max(1,num(f.height,14));floors.push({id,name:String(f.name||$t('Этаж')),y:num(f.y_floor,0),height:fh,slab:Math.max(0,Math.min(32,num(f.floor_thickness,1))),mat:rmat(f.materials)});
       (Array.isArray(f.doors)?f.doors:[]).forEach(o=>{const x=num(o.x_from,0),z=num(o.z_from,0);doors.push({id:uid('d'),floorId:id,x,z,w:Math.max(1,num(o.x_to,x)-x+1),d:Math.max(1,num(o.z_to,z)-z+1),axis:o.axis==='z'?'z':'x',h:Math.max(1,Math.min(64,num(o.height,3)))});});
-      (f.rooms||[]).forEach(r=>{const type=TYPE[r.type]?r.type:'other',shape=r.shape==='circle'?'circle':'rect',x=num(r.x_from,0),z=num(r.z_from,0);
+      (f.rooms||[]).forEach(r=>{const type=TYPE[r.type]?r.type:'other',isPoly=r.shape==='poly'&&Array.isArray(r.points)&&r.points.length>=3,shape=r.shape==='circle'?'circle':isPoly?'poly':'rect',x=num(r.x_from,0),z=num(r.z_from,0);
         const w=Math.max(1,num(r.x_to,x)-x+1);let dd=Math.max(1,num(r.z_to,z)-z+1);if(shape==='circle')dd=w;
         const col=typeof r.color==='string'&&/^#[0-9a-f]{6}$/i.test(r.color)&&r.color.toLowerCase()!==TYPE[type].color.toLowerCase()?r.color:null;
         const h=num(r.height,null);
-        rooms.push({id:uid('r'),floorId:id,name:String(r.name??$t('Комната')),type,shape,x,z,w,d:dd,h:h&&h!==fh?h:null,wall:Math.max(0,Math.min(8,num(r.wall,1))),mat:rmat(r.materials),color:col,notes:String(r.notes||'')});});});
+        const nr={id:uid('r'),floorId:id,name:String(r.name??$t('Комната')),type,shape,x,z,w,d:dd,h:h&&h!==fh?h:null,wall:Math.max(0,Math.min(8,num(r.wall,1))),mat:rmat(r.materials),color:col,notes:String(r.notes||'')};
+        if(isPoly)Object.assign(nr,polyFromAbs(r.points.map(q=>[num(q&&q[0],0),num(q&&q[1],0)])));if(r.join)nr.join=true;rooms.push(nr);});});
     if(!floors.length)throw new Error($t('В плане нет ни одного этажа.'));
     const ay=d.auto_y&&typeof d.auto_y==='object'?{auto:true,top:num(d.auto_y.top_floor_y,Math.max(...floors.map(f=>f.y)))}:{auto:false,top:Math.max(...floors.map(f=>f.y))};
     return {v:1,name:String(d.project||$t('Без названия')),origin:{x:num(d.origin_world&&d.origin_world.x,0),z:num(d.origin_world&&d.origin_world.z,0)},stack:ay,mat:rmat(d.materials),floors,rooms,doors,cur:floors[0].id};}
@@ -655,7 +730,7 @@ F('im-go').onclick=()=>{const t=F('im-text').value.trim();if(!t){F('im-err').tex
 /* ============ doors ============ */
 const doorById=id=>(S&&S.doors||[]).find(d=>d.id===id);
 function hitDoor(c){const ds=(S.doors||[]).filter(d=>d.floorId===S.cur);for(let i=ds.length-1;i>=0;i--){const d=ds[i];if(c.x>=d.x&&c.x<d.x+d.w&&c.z>=d.z&&c.z<d.z+d.d)return d;}return null;}
-function cellIsWall(r,x,z){const t=wallOf(r);if(t<=0)return false;const i=x-r.x,j=z-r.z;if(r.shape==='circle')return wallSet(r.w,t).has(i+','+j);return i<t||i>=r.w-t||j<t||j>=r.d-t;}
+function cellIsWall(r,x,z){return isWallCell(r,x,z);}
 function wallAt(fid,x,z){return roomsOf(fid).some(r=>inside(r,x,z)&&cellIsWall(r,x,z));}
 function placeDoor(c){const fid=S.cur,W=(x,z)=>wallAt(fid,x,z);
   if(!W(c.x,c.z)){F('hint').textContent=$t('Сюда нельзя: кликни именно по стене комнаты (тёмная полоса по краю).');return;}
@@ -717,11 +792,12 @@ armed(F('p-mreset'),'Точно сбросить всё?',()=>{snap();S.floors.f
 /* ============ litematica ============ */
 function lmFloors(scope){return scope==='floor'?[floor(S.cur)]:sorted();}
 function floorCells(f){const all=sorted(),fx=all.findIndex(q=>q.id===f.id),lower=all[fx+1],upper=all[fx-1],cells=new Map();
-  roomsOf(f.id).slice().sort((a,b)=>area(b)-area(a)).forEach(r=>{const t=wallOf(r),runs=r.shape==='circle'?circleRuns(r):null,ws=r.shape==='circle'&&t>0?wallSet(r.w,t):null;
+  roomsOf(f.id).slice().sort((a,b)=>area(b)-area(a)).forEach(r=>{const m=roomMask(r),W=roomWalls(r);
     const q=r.type==='atrium'&&lower?roomsOf(lower.id).find(o=>o.type==='atrium'&&o.name===r.name&&inY1(lower,o.h)===f.y-1):null;
-    for(let j=0;j<r.d;j++){let a=r.x,b=r.x+r.w;if(runs){if(!runs[j])continue;[a,b]=runs[j];}
-      for(let x=a;x<b;x++){const i=x-r.x,z=r.z+j,wall=t<=0?false:ws?ws.has(i+','+j):(i<t||i>=r.w-t||j<t||j>=r.d-t);
-        cells.set(x+','+z,{r,wall,open:!!(q&&inside(q,x,z)),top:inY1(f,r.h),door:0});}}});
+    m.rows.forEach((runs,j)=>runs.forEach(([a,b])=>{for(let i=a;i<b;i++){const x=r.x+i,z=r.z+j,k=x+','+z,wall=W.has(i+','+j),prev=cells.get(k);
+      // сращённые комнаты: если клетка уже воздух соседней сращённой комнаты, не превращаем её в стену
+      if(prev&&r.join&&prev.r&&prev.r.join&&!prev.wall&&wall)continue;
+      cells.set(k,{r,wall,open:!!(q&&inside(q,x,z)),top:inY1(f,r.h),door:0});}}));});
   (S.doors||[]).filter(d=>d.floorId===f.id).forEach(d=>{for(let z=d.z;z<d.z+d.d;z++)for(let x=d.x;x<d.x+d.w;x++){const k=x+','+z;let c=cells.get(k);
     if(!c){c={r:null,wall:false,open:false,top:inY0(f)+d.h-1,door:0};cells.set(k,c);}c.door=Math.max(c.door,d.h);}});
   const ct=Math.max(1,slabOf(f)),ur=upper?roomsOf(upper.id):[];
@@ -774,10 +850,10 @@ F('dl-lm').onclick=async()=>{const st=F('lm-info'),scope=F('lm-scope').value;
 /* ============ block grid ============ */
 const GR={id:null,part:'q',coord:'world',lay:null};
 function grRoom(){return S&&S.rooms.find(r=>r.id===GR.id);}
-function grModel(r){const t=wallOf(r),runs=r.shape==='circle'?circleRuns(r):null,ws=r.shape==='circle'&&t>0?wallSet(r.w,t):null;
-  const isIn=(i,j)=>{if(i<0||j<0||i>=r.w||j>=r.d)return false;if(!runs)return true;const run=runs[j];return !!run&&r.x+i>=run[0]&&r.x+i<run[1];};
-  const isWall=(i,j)=>t>0&&(ws?ws.has(i+','+j):(i<t||i>=r.w-t||j<t||j>=r.d-t));
-  const ci=Math.floor((r.w-1)/2),cj=Math.floor((r.d-1)/2),odd=r.w%2===1&&r.d%2===1,q=GR.part==='q'&&odd;
+function grModel(r){const t=wallOf(r),m=roomMask(r),W=roomWalls(r);
+  const isIn=(i,j)=>m.has(i,j);
+  const isWall=(i,j)=>W.has(i+','+j);
+  const ci=Math.floor((r.w-1)/2),cj=Math.floor((r.d-1)/2),odd=r.w%2===1&&r.d%2===1,q=GR.part==='q'&&odd&&r.shape==='circle';
   return {t,isIn,isWall,ci,cj,odd,i0:q?ci:0,i1:r.w-1,j0:0,j1:q?cj:r.d-1,q};}
 function grX(r,m,i){return GR.coord==='world'?S.origin.x+r.x+i:i-m.ci;}
 function grZ(r,m,j){return GR.coord==='world'?S.origin.z+r.z+j:j-m.cj;}
@@ -823,13 +899,22 @@ F('gr-copy').onclick=()=>{const r=grRoom();if(!r)return;const m=grModel(r),W=GR.
   const lines=[`${r.name} · ${dims(r)} · `+(W?$t('координаты мира'):$t('от центра комнаты'))+(m.q?' · '+$t('северо-восточная четверть'):'')];
   grRows(r,m).forEach(({j,a,b})=>{if(a===null)return;const z=W?grZ(r,m,j):sgn(grZ(r,m,j)),xa=W?grX(r,m,a):sgn(grX(r,m,a)),xb=W?grX(r,m,b):sgn(grX(r,m,b));lines.push(`Z ${z}: X ${xa} … ${xb}`);});
   const t=lines.join('\n'),st=F('gr-status');try{navigator.clipboard.writeText(t).then(()=>{st.textContent=$t('Скопировано.');},()=>{st.textContent=$t('Не получилось скопировать.');});}catch(e){st.textContent=$t('Не получилось скопировать.');}};
-cv.addEventListener('dblclick',e=>{if(!S||ui.view!=='plan')return;const h=hitRoom(cellAt(pos(e)));if(h){ui.sel=h.id;renderInspector();renderRoomList();req();openGrid(h);}});
+cv.addEventListener('dblclick',e=>{if(!S||ui.view!=='plan')return;const p=pos(e);
+  if(ui.tool==='poly'){if(ui.pd&&ui.pd.length>=3)finishPoly();return;}
+  const r=selRoom();
+  if(ui.tool==='select'&&r&&r.shape==='poly'&&r.floorId===S.cur){
+    const ph=polyHit(r,p,8);
+    if(ph&&ph.k==='v'){if(r.pts.length<=3){status($t('У формы должно быть хотя бы 3 точки.'));return;}
+      const abs=absPts(r);abs.splice(ph.i,1);const pr=polyFromAbs(abs);if(pr.pts.length<3||Math.abs(polyArea(pr.pts))<1)return;snap();Object.assign(r,pr);persist();renderAll();return;}
+    const ei=nearEdge(r,p,8);if(ei>=0){const k=cornerAt(p),abs=absPts(r);if(abs.some(q=>q[0]===k.x&&q[1]===k.z))return;
+      abs.splice(ei+1,0,[k.x,k.z]);const pr=polyFromAbs(abs);snap();Object.assign(r,pr);persist();renderAll();return;}}
+  const h=hitRoom(cellAt(p));if(h){ui.sel=h.id;renderInspector();renderRoomList();req();openGrid(h);}});
 
 /* ============ keyboard ============ */
 addEventListener('keydown',e=>{
   const modalOpen=!F('m-export').hidden||!F('m-import').hidden||!F('m-grid').hidden;
   if(e.key==='Escape'){if(modalOpen){F('m-export').hidden=F('m-import').hidden=F('m-grid').hidden=true;return;}
-    if(F('v-edit').hidden||!S)return;if(act&&act.type==='draw'){act=null;req();return;}ui.sel=null;renderInspector();renderRoomList();req();return;}
+    if(F('v-edit').hidden||!S)return;if(ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;req();return;}if(act&&act.type==='draw'){act=null;req();return;}ui.sel=null;renderInspector();renderRoomList();req();return;}
   if(F('v-edit').hidden||!S||modalOpen)return;
   const typing=e.target.matches('input:not([type=checkbox]),textarea,select'),mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
   if(mod&&!typing&&(k==='z'||k==='я')){e.preventDefault();e.shiftKey?doRedo():doUndo();return;}
@@ -839,9 +924,10 @@ addEventListener('keydown',e=>{
   if(mod&&!typing&&(k==='v'||k==='м')){if(clip){e.preventDefault();pasteClip(true);}return;}
   if(typing||mod)return;
   if(k==='s'||k==='ы'){setView(ui.view==='section'?'plan':'section');return;}
-  const tools={v:'select','м':'select',r:'rect','к':'rect',c:'circle','с':'circle',h:'hand','р':'hand',d:'door','в':'door'};
+  const tools={v:'select','м':'select',r:'rect','к':'rect',c:'circle','с':'circle',p:'poly','з':'poly',h:'hand','р':'hand',d:'door','в':'door'};
   if(tools[k]){if(ui.view!=='section')setTool(tools[k]);return;}
   if(k==='f'||k==='а'){fitView();return;}
+  if(ui.pd&&ui.pd.length){if(e.key==='Enter'){e.preventDefault();finishPoly();return;}if(e.key==='Backspace'){e.preventDefault();ui.pd.pop();if(!ui.pd.length){ui.pd=null;F('readout').textContent=readoutBase;}else polyReadout();req();return;}}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();delSel();return;}
   if(e.key===' '){e.preventDefault();if(!spaceDown){spaceDown=true;setCursor();}return;}
   const arrows={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
