@@ -1,8 +1,8 @@
 // Переводы. Ключ — русский текст: русская версия работает без словаря,
 // остальные языки берут перевод из src/locales/<язык>.js. {name} — подстановки.
-import { BRAND, BRAND_SLUG } from './brand.js';
-import en from './locales/en.js';
-import pt from './locales/pt.js';
+import { BRAND, BRAND_SLUG } from './brand.js?v=20261020b';
+import en from './locales/en.js?v=20261020b';
+import pt from './locales/pt.js?v=20261020b';
 
 export const LANGS = [['ru', 'Русский', 'RU'], ['en', 'English', 'EN'], ['pt', 'Português (BR)', 'PT']];
 const DICTS = { en, pt };

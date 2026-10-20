@@ -1,6 +1,6 @@
-import { $t, pl, lang, locale, setLang, LANGS, brand, brandSlug, recordStatic, applyStatic, missing } from './i18n.js';
-import { circleRuns, area, wallOf, wallSet, baseWalls, wallsOfMask, roomMask, maskKey, innerArea, innerDims, inside, polyFromAbs, absPts, outlinePts, polyArea, dropStraight, hexA, lum, shade, wallCol } from './geometry.js';
-import { nbtEncode, NB, gzipBytes } from './lib/nbt.js';
+import { $t, pl, lang, locale, setLang, LANGS, brand, brandSlug, recordStatic, applyStatic, missing } from './i18n.js?v=20261020b';
+import { circleRuns, area, wallOf, wallSet, baseWalls, wallsOfMask, roomMask, maskKey, innerArea, innerDims, inside, polyFromAbs, absPts, outlinePts, polyArea, dropStraight, hexA, lum, shade, wallCol } from './geometry.js?v=20261020b';
+import { nbtEncode, NB, gzipBytes } from './lib/nbt.js?v=20261020b';
 
 recordStatic();
 
@@ -356,6 +356,7 @@ cv.addEventListener('pointerdown',e=>{
     if(pd.length>=3&&Math.hypot(EX(pd[0][0])-p.x,EZ(pd[0][1])-p.y)<=10){finishPoly();return;}
     const last=pd[pd.length-1],q=e.shiftKey&&last?straight(last,k):[k.x,k.z];
     if(!last||last[0]!==q[0]||last[1]!==q[1])pd.push(q);polyReadout();req();return;}
+  if(ui.tool!=='rect'&&ui.tool!=='circle')return;
   act={type:'draw',shape:ui.tool,c0:c,draft:null};updDraft(c);req();
 });
 // Линейка: длина в блоках между углами блоков
@@ -619,7 +620,7 @@ function renderClip(){F('clip').hidden=!clip;if(!clip)return;
 function renderAll(){if(!S)return;renderProject();renderFloors();renderTypes();renderInspector();renderRoomList();renderClip();renderSecBar();updUndo();setCursor();req();}
 
 const HINTS={ruler:'Тяни от точки до точки — покажет расстояние в блоках. Shift — ровно по прямой или под 45°. Esc убирает замер.',poly:'Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.',door:'Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.',select:'Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик внутри комнаты — схема по блокам, по стене — новая точка: потом тяни кусок стены рядом с ней. Двойной клик по точке удаляет её.',rect:'Тяни от угла до угла.',circle:'Тяни от центра наружу: диаметр всегда нечётный.',hand:'Тяни, чтобы двигать план. Колесо меняет масштаб.'};
-function setTool(t){if(t!=='ruler'&&ui.ruler){ui.ruler=null;req();}if(t!=='poly'&&ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;}ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=$t(HINTS[t]);setCursor();
+function setTool(t){if(t!=='ruler'&&ui.ruler){ui.ruler=null;req();}if(t!=='poly'&&ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;}ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=HINTS[t]?$t(HINTS[t]):'';setCursor();
   if(t==='door'&&S){ui.sel=null;ui.selDoor=null;renderRoomList();req();}if(S)renderInspector();}
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 F('zin').onclick=()=>zoomBy(1.25);F('zout').onclick=()=>zoomBy(.8);F('zfit').onclick=fitView;
