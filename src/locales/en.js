@@ -1,10 +1,9 @@
 // English. Key = Russian source text (whitespace collapsed). {brand} is replaced with the project name.
 export default {
   // ---- page, brand ----
-  "Планировщик «Глубина»": "{brand} — Minecraft base planner",
-  "Глубина": "{brand}",
-  "Глубина — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.": "{brand} is a free planner for underground Minecraft bases: block-by-block top view, floors by Y level, chunk grid, Litematica export.",
-  "Глубина — планировщик баз для Minecraft": "{brand} — Minecraft base planner",
+  "{brand} — планировщик баз для Minecraft": "{brand} — Minecraft base planner",
+  "Undergrid — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.": "{brand} is a free planner for underground Minecraft bases: block-by-block top view, floors by Y level, chunk grid, Litematica export.",
+  "Undergrid — планировщик баз для Minecraft": "{brand} — Minecraft base planner",
   "Язык": "Language",
 
   // ---- landing ----
@@ -16,7 +15,7 @@ export default {
   "Открыть планировщик": "Open the planner",
   "Планировщик баз для Minecraft": "Minecraft base planner",
   "Спланируй базу по блокам, прежде чем копать": "Plan your base block by block before you dig",
-  "Глубина — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.": "{brand} is a top-down floor plan editor. One cell is one block, floors sit at real Y levels and chunk borders match your world. Draw halls, corridors and shafts, then build from ready-made coordinates.",
+  "Undergrid — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.": "{brand} is a top-down floor plan editor. One cell is one block, floors sit at real Y levels and chunk borders match your world. Draw halls, corridors and shafts, then build from ready-made coordinates.",
   "Как это работает": "How it works",
   "Планы хранятся в твоём браузере. Бэкап скачивается одним файлом.": "Plans are stored in your browser. A backup downloads as a single file.",
   "Пример плана: круглый атриум с лифтом, четыре коридора и залы вокруг": "Example plan: a round atrium with an elevator, four corridors and halls around them",
@@ -328,7 +327,7 @@ export default {
   "Собираю схему…": "Building the schematic…",
   "Скачано: {r} рег., {b} блоков. Origin в Litematica: X {x} · Y {y} · Z {z}": "Downloaded: {r} regions, {b} blocks. Litematica origin: X {x} · Y {y} · Z {z}",
   "Не получилось собрать схему:": "Couldn't build the schematic:",
-  "План из планировщика «Глубина»": "Plan from the {brand} planner",
+  "План из планировщика {brand}": "Plan from the {brand} planner",
 
   // ---- text export ----
   "Вид сверху, единица = 1 блок. X растёт на восток, Z на юг (как в Minecraft). x_from/x_to и z_from/z_to включительные, отсчёт от центрального блока лифта (0,0). Круг задан описанным квадратом, диаметр = x_to−x_from+1. y_floor — Y нижнего блока плиты пола, floor_thickness — толщина плиты, stand_y = y_floor + floor_thickness — Y, на котором стоишь (первый блок воздуха), height — высота помещения внутри, ceiling_y — последний блок воздуха под потолком. Размеры и координаты наружные, вместе со стенами; wall — толщина стены в блоках внутри этих границ, inner_size — свободное место внутри.": "Top view, 1 unit = 1 block. X grows east, Z grows south (as in Minecraft). x_from/x_to and z_from/z_to are inclusive, counted from the central elevator block (0,0). A circle is given by its bounding square, diameter = x_to−x_from+1. y_floor is the Y of the bottom block of the floor slab, floor_thickness is the slab thickness, stand_y = y_floor + floor_thickness is the Y you stand at (first air block), height is the inner room height, ceiling_y is the last air block under the ceiling. Sizes and coordinates are outer, including walls; wall is the wall thickness in blocks inside those bounds, inner_size is the free space inside.",
@@ -373,7 +372,7 @@ export default {
   "Выбери файл или вставь текст плана.": "Pick a file or paste the plan text.",
   "Не получилось прочитать JSON. Проверь, что скопирован весь текст от { до }.": "Couldn't read the JSON. Check that you copied all the text from { to }.",
   "В плане нет ни одного этажа.": "The plan has no floors.",
-  "Это не похоже на план из Глубины: нет поля format или списка этажей.": "This doesn't look like a {brand} plan: there is no format field or floor list.",
+  "Это не похоже на план из {brand}: нет поля format или списка этажей.": "This doesn't look like a {brand} plan: there is no format field or floor list.",
 
   // ---- room types ----
   "Атриум / лифт": "Atrium / elevator",
@@ -478,4 +477,9 @@ export default {
   "Тяни квадратики — точки, а любую сторону — двигается эта стена. Двойной клик по стене ставит новую точку, по точке — удаляет её.": "Drag the squares to move points, or drag any side to move that wall. Double-click a wall to add a point, double-click a point to remove it.",
   "двойной клик — точка на стене": "double-click — point on the wall",
   "Точка стоит. Теперь тяни кусок стены рядом с ней.": "Point added. Now drag the piece of wall next to it.",
+  "Тяни от точки до точки — покажет расстояние в блоках. Shift — ровно по прямой или под 45°. Esc убирает замер.": "Drag from point to point to measure the distance in blocks. Shift keeps the line straight or at 45°. Esc clears the measurement.",
+  "Линейка": "Ruler",
+  "Линейка (L): измерить расстояние": "Ruler (L): measure distance",
+  "по X {x} · по Z {z} · по прямой {l} бл.": "X {x} · Z {z} · straight {l} bl.",
+  "{l} бл.": "{l} bl.",
 };

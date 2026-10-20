@@ -1,4 +1,5 @@
-// Название проекта по языкам. Международное имя пока рабочее: поменяй здесь, и оно сменится везде.
-export const BRAND = { ru: 'Глубина', en: 'Undergrid', pt: 'Undergrid' };
+// Название проекта. Одно на все языки: поменяй здесь, и оно сменится на сайте, в заголовках и в именах файлов.
+// В index.html имя ещё написано текстом (заголовок, описание, лого) — его видно до запуска скрипта и поисковикам.
+export const BRAND = { ru: 'Undergrid', en: 'Undergrid', pt: 'Undergrid' };
 // Начало имён скачиваемых файлов: латиницей, без пробелов.
-export const BRAND_SLUG = { ru: 'glubina', en: 'undergrid', pt: 'undergrid' };
+export const BRAND_SLUG = { ru: 'undergrid', en: 'undergrid', pt: 'undergrid' };

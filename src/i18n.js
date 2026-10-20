@@ -71,5 +71,6 @@ export function applyStatic() {
   for (const { n, ru } of nodes) n.data = $t(ru);
   for (const { el, a, ru } of attrs) el.setAttribute(a, $t(ru));
   document.documentElement.lang = LOCALE[lang];
-  document.title = $t('Планировщик «Глубина»');
+  document.title = $t('{brand} — планировщик баз для Minecraft');
+  document.querySelectorAll('.brand .word').forEach(el => { el.textContent = BRAND[lang]; });
 }

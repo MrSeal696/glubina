@@ -1,10 +1,9 @@
 // Português (Brasil). Chave = texto-fonte em russo (espaços normalizados). {brand} vira o nome do projeto.
 export default {
   // ---- página, marca ----
-  "Планировщик «Глубина»": "{brand} — planejador de bases para Minecraft",
-  "Глубина": "{brand}",
-  "Глубина — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.": "{brand} é um planejador gratuito de bases subterrâneas para Minecraft: vista de cima bloco a bloco, andares por nível Y, grade de chunks, exportação para Litematica.",
-  "Глубина — планировщик баз для Minecraft": "{brand} — planejador de bases para Minecraft",
+  "{brand} — планировщик баз для Minecraft": "{brand} — planejador de bases para Minecraft",
+  "Undergrid — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.": "{brand} é um planejador gratuito de bases subterrâneas para Minecraft: vista de cima bloco a bloco, andares por nível Y, grade de chunks, exportação para Litematica.",
+  "Undergrid — планировщик баз для Minecraft": "{brand} — planejador de bases para Minecraft",
   "Язык": "Idioma",
 
   // ---- landing ----
@@ -16,7 +15,7 @@ export default {
   "Открыть планировщик": "Abrir o planejador",
   "Планировщик баз для Minecraft": "Planejador de bases para Minecraft",
   "Спланируй базу по блокам, прежде чем копать": "Planeje sua base bloco a bloco antes de cavar",
-  "Глубина — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.": "{brand} é um editor de plantas com vista de cima. Uma célula é um bloco, os andares ficam nos níveis Y reais e as bordas dos chunks batem com o seu mundo. Desenhe salões, corredores e poços e depois construa com as coordenadas prontas.",
+  "Undergrid — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.": "{brand} é um editor de plantas com vista de cima. Uma célula é um bloco, os andares ficam nos níveis Y reais e as bordas dos chunks batem com o seu mundo. Desenhe salões, corredores e poços e depois construa com as coordenadas prontas.",
   "Как это работает": "Como funciona",
   "Планы хранятся в твоём браузере. Бэкап скачивается одним файлом.": "Os planos ficam salvos no seu navegador. O backup é baixado em um único arquivo.",
   "Пример плана: круглый атриум с лифтом, четыре коридора и залы вокруг": "Exemplo de plano: um átrio redondo com elevador, quatro corredores e salões em volta",
@@ -328,7 +327,7 @@ export default {
   "Собираю схему…": "Montando o schematic…",
   "Скачано: {r} рег., {b} блоков. Origin в Litematica: X {x} · Y {y} · Z {z}": "Baixado: {r} regiões, {b} blocos. Origin no Litematica: X {x} · Y {y} · Z {z}",
   "Не получилось собрать схему:": "Não deu para montar o schematic:",
-  "План из планировщика «Глубина»": "Plano do planejador {brand}",
+  "План из планировщика {brand}": "Plano do planejador {brand}",
 
   // ---- exportação em texto ----
   "Вид сверху, единица = 1 блок. X растёт на восток, Z на юг (как в Minecraft). x_from/x_to и z_from/z_to включительные, отсчёт от центрального блока лифта (0,0). Круг задан описанным квадратом, диаметр = x_to−x_from+1. y_floor — Y нижнего блока плиты пола, floor_thickness — толщина плиты, stand_y = y_floor + floor_thickness — Y, на котором стоишь (первый блок воздуха), height — высота помещения внутри, ceiling_y — последний блок воздуха под потолком. Размеры и координаты наружные, вместе со стенами; wall — толщина стены в блоках внутри этих границ, inner_size — свободное место внутри.": "Vista de cima, 1 unidade = 1 bloco. X cresce para o leste, Z para o sul (como no Minecraft). x_from/x_to e z_from/z_to são inclusivos, contados a partir do bloco central do elevador (0,0). Um círculo é dado pelo quadrado que o envolve, diâmetro = x_to−x_from+1. y_floor é o Y do bloco de baixo do piso, floor_thickness é a espessura do piso, stand_y = y_floor + floor_thickness é o Y onde você fica em pé (primeiro bloco de ar), height é a altura interna da sala, ceiling_y é o último bloco de ar sob o teto. Tamanhos e coordenadas são externos, com as paredes; wall é a espessura da parede em blocos dentro desses limites, inner_size é o espaço livre interno.",
@@ -373,7 +372,7 @@ export default {
   "Выбери файл или вставь текст плана.": "Escolha um arquivo ou cole o texto do plano.",
   "Не получилось прочитать JSON. Проверь, что скопирован весь текст от { до }.": "Não deu para ler o JSON. Confira se o texto foi copiado inteiro, do { ao }.",
   "В плане нет ни одного этажа.": "O plano não tem nenhum andar.",
-  "Это не похоже на план из Глубины: нет поля format или списка этажей.": "Isto não parece um plano do {brand}: não há campo format nem lista de andares.",
+  "Это не похоже на план из {brand}: нет поля format или списка этажей.": "Isto não parece um plano do {brand}: não há campo format nem lista de andares.",
 
   // ---- tipos de sala ----
   "Атриум / лифт": "Átrio / elevador",
@@ -478,4 +477,9 @@ export default {
   "Тяни квадратики — точки, а любую сторону — двигается эта стена. Двойной клик по стене ставит новую точку, по точке — удаляет её.": "Arraste os quadradinhos para mover pontos, ou qualquer lado para mover essa parede. Clique duplo numa parede adiciona um ponto; num ponto, o remove.",
   "двойной клик — точка на стене": "clique duplo — ponto na parede",
   "Точка стоит. Теперь тяни кусок стены рядом с ней.": "Ponto colocado. Agora arraste o trecho de parede ao lado dele.",
+  "Тяни от точки до точки — покажет расстояние в блоках. Shift — ровно по прямой или под 45°. Esc убирает замер.": "Arraste de um ponto a outro para medir a distância em blocos. Shift mantém a linha reta ou a 45°. Esc apaga a medida.",
+  "Линейка": "Régua",
+  "Линейка (L): измерить расстояние": "Régua (L): medir distância",
+  "по X {x} · по Z {z} · по прямой {l} бл.": "X {x} · Z {z} · em linha reta {l} bl.",
+  "{l} бл.": "{l} bl.",
 };

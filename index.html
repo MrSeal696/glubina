@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Планировщик «Глубина»</title>
-<meta name="description" content="Глубина — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.">
-<meta property="og:title" content="Глубина — планировщик баз для Minecraft">
-<meta property="og:description" content="Глубина — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.">
+<title>Undergrid — планировщик баз для Minecraft</title>
+<meta name="description" content="Undergrid — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.">
+<meta property="og:title" content="Undergrid — планировщик баз для Minecraft">
+<meta property="og:description" content="Undergrid — бесплатный планировщик подземных баз для Minecraft: вид сверху по блокам, этажи по высоте Y, сетка чанков, экспорт в Litematica.">
 <meta name="theme-color" content="#1b1e1f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
 <!-- ================= LANDING ================= -->
 <div id="v-home" hidden>
   <header class="nav wrap">
-    <a class="brand" href="#home"><span class="mark" aria-hidden="true"></span><span class="word">Глубина</span></a>
+    <a class="brand" href="#home"><span class="mark" aria-hidden="true"></span><span class="word">Undergrid</span></a>
     <nav aria-label="Разделы"><a href="#features">Возможности</a><a href="#how">Как строить</a><a href="#keys">Клавиши</a><a href="#faq">Вопросы</a></nav>
     <div class="nav-end"><select class="lang" aria-label="Язык"><option value="ru">RU</option><option value="en">EN</option><option value="pt">PT</option></select><a class="btn primary" href="#plans">Открыть планировщик</a></div>
   </header>
@@ -28,7 +28,7 @@
     <div>
       <p class="eyebrow">Планировщик баз для Minecraft</p>
       <h1>Спланируй базу по&nbsp;блокам, прежде чем копать</h1>
-      <p class="lead">Глубина — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.</p>
+      <p class="lead">Undergrid — редактор планов с видом сверху. Одна клетка равна одному блоку, этажи стоят по высоте Y, а границы чанков совпадают с твоим миром. Рисуешь залы, коридоры и шахты, а потом строишь по готовым координатам.</p>
       <div class="cta">
         <a class="btn primary big" href="#plans">Открыть планировщик</a>
         <a class="btn big" href="#how">Как это работает</a>
@@ -72,6 +72,7 @@
       <div><dt><kbd>Ctrl</kbd>+<kbd>D</kbd></dt><dd>Копия рядом</dd></div>
       <div><dt><kbd>C</kbd></dt><dd>Круглый зал от центра</dd></div>
       <div><dt><kbd>P</kbd></dt><dd>Комната любой формы</dd></div>
+      <div><dt><kbd>L</kbd></dt><dd>Линейка</dd></div>
       <div><dt><kbd>Alt</kbd> + перетаскивание</dt><dd>Вытащить копию комнаты</dd></div>
       <div><dt><kbd>H</kbd> или <kbd>Пробел</kbd></dt><dd>Двигать план</dd></div>
       <div><dt>Стрелки, с <kbd>Shift</kbd></dt><dd>Сдвиг на 1 блок, на 8 блоков</dd></div>
@@ -97,7 +98,7 @@
   </section>
 
   <footer class="wrap foot">
-    <span class="brand"><span class="mark" aria-hidden="true"></span><span class="word">Глубина</span></span>
+    <span class="brand"><span class="mark" aria-hidden="true"></span><span class="word">Undergrid</span></span>
     <span>Неофициальный инструмент. Не связан с Mojang и Microsoft.</span>
   </footer>
 </div>
@@ -105,7 +106,7 @@
 <!-- ================= PLANS ================= -->
 <div id="v-plans" hidden>
   <header class="nav wrap">
-    <a class="brand" href="#home"><span class="mark" aria-hidden="true"></span><span class="word">Глубина</span></a>
+    <a class="brand" href="#home"><span class="mark" aria-hidden="true"></span><span class="word">Undergrid</span></a>
     <div class="nav-end"><select class="lang" aria-label="Язык"><option value="ru">RU</option><option value="en">EN</option><option value="pt">PT</option></select><a class="btn" href="#home">О планировщике</a></div>
   </header>
   <main class="wrap">
@@ -150,6 +151,7 @@
         <button data-tool="circle" aria-label="Круглое помещение" title="Круг (C)"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 12h.01"/></svg></button>
         <button data-tool="poly" aria-label="Комната любой формы" title="Форма по точкам (P)"><svg class="i" viewBox="0 0 24 24"><path d="M4 6l7-2 9 5-3 11H6z"/><path d="M4 6h.01M11 4h.01M20 9h.01M17 20h.01M6 20h.01"/></svg></button>
         <button data-tool="door" aria-label="Дверь" title="Дверь (D): клик по стене"><svg class="i" viewBox="0 0 24 24"><path d="M6 21V4h12v17"/><path d="M3 21h18"/><path d="M14 13h.01"/></svg></button>
+        <button data-tool="ruler" aria-label="Линейка" title="Линейка (L): измерить расстояние"><svg class="i" viewBox="0 0 24 24"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l2 2M10 9.5l2 2M13 6.5l2 2"/></svg></button>
         <button data-tool="hand" aria-label="Двигать план" title="Рука (H, или пробел)"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
         <div class="sep" aria-hidden="true"></div>
         <button id="zin" aria-label="Приблизить" title="Приблизить"><svg class="i" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>

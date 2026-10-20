@@ -113,10 +113,16 @@ function drawWall(r,col){const t=wallOf(r);if(t<=0)return;const ctx=rc.ctx,s=rc.
 function drawRoom(r,mode,tk,arrow){
   const ctx=rc.ctx,col=roomColor(r),s=rc.V.s,ghost=mode==='ghost';
   ctx.save();
-  if(!isRect(r)){const m=roomMask(r);
-    if(!ghost){ctx.beginPath();m.rows.forEach((runs,j)=>runs.forEach(([a,b])=>ctx.rect(PX(r.x+a),PZ(r.z+j),(b-a)*s,s)));ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fill();if(mode==='room')drawWall(r,col);}
-    ctx.beginPath();m.rows.forEach((runs,j)=>{const z=r.z+j;runs.forEach(([a,b])=>{seg(r.x+a,z,r.x+a,z+1);seg(r.x+b,z,r.x+b,z+1);});
-      diffRuns(runs,m.rows[j-1]||[]).forEach(([a,b])=>seg(r.x+a,z,r.x+b,z));diffRuns(runs,m.rows[j+1]||[]).forEach(([a,b])=>seg(r.x+a,z+1,r.x+b,z+1));});
+  const ps=mode==='draft'?[]:joinPartners(rc.P,r);
+  if(!isRect(r)||ps.length){const m=roomMask(r);
+    // Сращённые комнаты: общий пол рисуем один раз, а линию контура на стыке не рисуем — иначе остаётся «шов».
+    const idx=rc.P.rooms.indexOf(r),early=ps.filter(o=>rc.P.rooms.indexOf(o)<idx);
+    const pRuns=(list,j)=>{const z=r.z+j,out=[];list.forEach(o=>{const jj=z-o.z;if(jj<0||jj>=o.d)return;roomMask(o).rows[jj].forEach(([a,b])=>out.push([a+o.x-r.x,b+o.x-r.x]));});return out;};
+    const inP=(i,j)=>ps.some(o=>inside(o,r.x+i,r.z+j));
+    if(!ghost){ctx.beginPath();m.rows.forEach((runs,j)=>diffRuns(runs,early.length?pRuns(early,j):[]).forEach(([a,b])=>ctx.rect(PX(r.x+a),PZ(r.z+j),(b-a)*s,s)));ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fill();if(mode==='room')drawWall(r,col);}
+    ctx.beginPath();m.rows.forEach((runs,j)=>{const z=r.z+j;runs.forEach(([a,b])=>{if(!inP(a-1,j))seg(r.x+a,z,r.x+a,z+1);if(!inP(b,j))seg(r.x+b,z,r.x+b,z+1);});
+      const up=(m.rows[j-1]||[]).concat(ps.length?pRuns(ps,j-1):[]),dn=(m.rows[j+1]||[]).concat(ps.length?pRuns(ps,j+1):[]);
+      diffRuns(runs,up).forEach(([a,b])=>seg(r.x+a,z,r.x+b,z));diffRuns(runs,dn).forEach(([a,b])=>seg(r.x+a,z+1,r.x+b,z+1));});
   }else{
     if(!ghost){ctx.fillStyle=hexA(col,mode==='draft'?.45:.82);ctx.fillRect(PX(r.x),PZ(r.z),r.w*s,r.d*s);if(mode==='room')drawWall(r,col);}
     ctx.beginPath();ctx.rect(PX(r.x)+.5,PZ(r.z)+.5,r.w*s-1,r.d*s-1);}
@@ -194,7 +200,21 @@ function paint(ctx,W,H,V,P,fid,o={}){
   const eh=o.edgeHover;if(r&&eh){const ap=eh.ap,[x1,z1]=ap[eh.i],[x2,z2]=ap[(eh.i+1)%ap.length];ctx.save();
     if(r.shape==='poly'){ctx.strokeStyle=tk.accent;ctx.lineWidth=7;ctx.globalAlpha=.35;ctx.beginPath();ctx.moveTo(PX(x1),PZ(z1));ctx.lineTo(PX(x2),PZ(z2));ctx.stroke();ctx.globalAlpha=1;}
     const qx=PX(eh.q[0]),qz=PZ(eh.q[1]);ctx.lineWidth=1.5;ctx.strokeStyle=tk.accent;ctx.fillStyle=tk.canvas;ctx.setLineDash([2,2]);ctx.fillRect(qx-4,qz-4,8,8);ctx.strokeRect(qx-4,qz-4,8,8);ctx.restore();}
+  if(o.ruler)drawRuler(o.ruler,tk);
 }
+function rulerTag(ctx,t,x,y,tk,strong){ctx.font=`${strong?600:500} 12px "JetBrains Mono", ui-monospace, monospace`;const w=ctx.measureText(t).width+10;
+  ctx.fillStyle=strong?tk.accent:tk.raised;ctx.globalAlpha=strong?1:.92;ctx.fillRect(x-w/2,y-10,w,20);ctx.globalAlpha=1;
+  ctx.strokeStyle=tk.accent;ctx.lineWidth=1;ctx.strokeRect(x-w/2+.5,y-9.5,w-1,19);ctx.fillStyle=strong?'#15181a':tk.ink;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,x,y+.5);}
+function drawRuler(R0,tk){const ctx=rc.ctx,q=rulerInfo(R0),[ax,az]=R0.a,[bx,bz]=R0.b,x1=PX(ax),z1=PZ(az),x2=PX(bx),z2=PZ(bz);ctx.save();
+  if(q.ax&&q.az){ctx.setLineDash([4,4]);ctx.strokeStyle=tk.accent;ctx.globalAlpha=.7;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x1,z1);ctx.lineTo(x2,z1);ctx.lineTo(x2,z2);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+    rulerTag(ctx,String(q.ax),(x1+x2)/2,z1+(z2>z1?-14:14),tk,false);rulerTag(ctx,String(q.az),x2+(x1<x2?1:-1)*(String(q.az).length*4+20),(z1+z2)/2,tk,false);}
+  ctx.strokeStyle=tk.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,z1);ctx.lineTo(x2,z2);ctx.stroke();
+  // засечки на концах — поперёк линии
+  const L=Math.hypot(x2-x1,z2-z1)||1,nx=-(z2-z1)/L*7,nz=(x2-x1)/L*7;ctx.lineWidth=2;ctx.beginPath();
+  [[x1,z1],[x2,z2]].forEach(([x,z])=>{ctx.moveTo(x-nx,z-nz);ctx.lineTo(x+nx,z+nz);});ctx.stroke();
+  [[x1,z1],[x2,z2]].forEach(([x,z])=>{ctx.fillStyle=tk.raised;ctx.fillRect(x-3,z-3,6,6);ctx.strokeRect(x-3,z-3,6,6);});
+  if(q.len>0)rulerTag(ctx,$t('{l} бл.',{l:fmtLen(q.len)}),(x1+x2)/2+nx*2.4,(z1+z2)/2+nz*2.4,tk,true);
+  ctx.restore();}
 
 /* ============ landing ============ */
 let HERO=tplSample();
@@ -272,7 +292,7 @@ let act=null,pinch=null,spaceDown=false;const ptrs=new Map();
 function draw(){if(F('v-edit').hidden||!S)return;const o=sizeCanvas(cv);EW=o.W;EH=o.H;
   if(ui.view==='section'){drawSection(o.ctx,EW,EH);return;}const g=ghostFloor(),r=selRoom();
   paint(o.ctx,EW,EH,V,S,S.cur,{ghostId:g&&g.id,ghostArrow:ui.ghost==='below'?'↓':'↑',
-    draft:act&&act.type==='draw'&&act.draft?{...act.draft,type:ui.lastType,color:null,name:''}:null,sel:r&&r.floorId===S.cur?r:null,tags:true,selDoor:ui.sel?null:ui.selDoor,polyDraft:ui.tool==='poly'&&ui.pd?{pts:ui.pd,hover:ui.pdHover}:null,edgeHover:ui.tool==='select'&&!act?ui.eh:null});}
+    draft:act&&act.type==='draw'&&act.draft?{...act.draft,type:ui.lastType,color:null,name:''}:null,sel:r&&r.floorId===S.cur?r:null,tags:true,selDoor:ui.sel?null:ui.selDoor,polyDraft:ui.tool==='poly'&&ui.pd?{pts:ui.pd,hover:ui.pdHover}:null,edgeHover:ui.tool==='select'&&!act?ui.eh:null,ruler:ui.ruler});}
 function handles(r){const x0=EX(r.x),z0=EZ(r.z),x1=EX(r.x+r.w),z1=EZ(r.z+r.d),xm=(x0+x1)/2,zm=(z0+z1)/2;
   return {nw:[x0,z0],n:[xm,z0],ne:[x1,z0],e:[x1,zm],se:[x1,z1],s:[xm,z1],sw:[x0,z1],w:[x0,zm]};}
 const pos=e=>{const b=cv.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top}};
@@ -331,12 +351,18 @@ cv.addEventListener('pointerdown',e=>{
     if(hit&&e.altKey){snap();const cp={...hit,id:uid('r'),name:nextName(hit.name)};S.rooms.push(cp);ui.sel=cp.id;act={type:'move',id:cp.id,c0:c,o:{x:cp.x,z:cp.z},snapped:true};renderAll();return;}
     if(hit){ui.sel=hit.id;act={type:'move',id:hit.id,c0:c,o:{x:hit.x,z:hit.z},snapped:false};renderInspector();renderRoomList();req();return;}
     ui.sel=null;renderInspector();renderRoomList();act={type:'pan',p0:p,v0:{...V}};req();return;}
+  if(ui.tool==='ruler'){const k=cornerAt(p);ui.ruler={a:[k.x,k.z],b:[k.x,k.z]};act={type:'ruler'};rulerReadout();req();return;}
   if(ui.tool==='poly'){const k=cornerAt(p),pd=ui.pd||(ui.pd=[]);
     if(pd.length>=3&&Math.hypot(EX(pd[0][0])-p.x,EZ(pd[0][1])-p.y)<=10){finishPoly();return;}
     const last=pd[pd.length-1],q=e.shiftKey&&last?straight(last,k):[k.x,k.z];
     if(!last||last[0]!==q[0]||last[1]!==q[1])pd.push(q);polyReadout();req();return;}
   act={type:'draw',shape:ui.tool,c0:c,draft:null};updDraft(c);req();
 });
+// Линейка: длина в блоках между углами блоков
+function rulerInfo(R0){const dx=R0.b[0]-R0.a[0],dz=R0.b[1]-R0.a[1];return{dx,dz,ax:Math.abs(dx),az:Math.abs(dz),len:Math.hypot(dx,dz)};}
+const fmtLen=v=>Number.isInteger(v)?String(v):v.toFixed(1);
+function rulerReadout(){if(!ui.ruler)return;const q=rulerInfo(ui.ruler);
+  F('readout').textContent=(q.ax&&q.az?$t('по X {x} · по Z {z} · по прямой {l} бл.',{x:q.ax,z:q.az,l:fmtLen(q.len)}):$t('{l} бл.',{l:fmtLen(q.len)}))+' · '+`X ${fmt(ui.ruler.a[0])} Z ${fmt(ui.ruler.a[1])} → X ${fmt(ui.ruler.b[0])} Z ${fmt(ui.ruler.b[1])}`;}
 function polyReadout(){const pd=ui.pd||[],h=ui.pdHover;if(!pd.length){return;}const last=pd[pd.length-1];
   const len=h?Math.round(Math.hypot(h[0]-last[0],h[1]-last[1])*10)/10:0;
   F('readout').textContent=$t('точек: {n}',{n:pd.length})+(h?' · '+$t('отрезок {l} бл.',{l:len}):'')+' · '+$t('Enter — готово, Esc — отмена');}
@@ -373,6 +399,7 @@ cv.addEventListener('pointermove',e=>{
       else{abs[i]=[A[0]+dx,A[1]+dz];abs[j]=[B[0]+dx,B[1]+dz];np=abs;}}
     const pr=polyFromAbs(np);if(pr.pts.length<3||Math.abs(polyArea(pr.pts))<1)return;
     if(!act.snapped){snap();act.snapped=true;}Object.assign(rr,pr);renderInspector();req();return;}
+  if(act.type==='ruler'){const k=cornerAt(p),a=ui.ruler.a;ui.ruler.b=e.shiftKey?straight(a,k):[k.x,k.z];rulerReadout();req();return;}
   if(act.type==='pan'){V.cx=act.v0.cx-(p.x-act.p0.x)/V.s;V.cz=act.v0.cz-(p.y-act.p0.y)/V.s;req();return;}
   if(act.type==='draw'){updDraft(c);req();return;}
   if(act.type==='dmove'){const dx=c.x-act.c0.x,dz=c.z-act.c0.z;if(!act.snapped&&(dx||dz)){snap();act.snapped=true;}if(!act.snapped)return;
@@ -396,6 +423,7 @@ function endPtr(e){
   if(pinch){if(ptrs.size<2)pinch=null;return;}
   if(!act||!S)return;
   if(act.type==='span'||act.type==='inset'){act=null;setCursor();return;}
+  if(act.type==='ruler'){act=null;const R0=ui.ruler;if(R0&&R0.a[0]===R0.b[0]&&R0.a[1]===R0.b[1])ui.ruler=null;req();return;}
   if(act.type==='draw'&&act.draft){const d=act.draft;
     if((d.shape==='rect'&&d.w*d.d>1)||(d.shape==='circle'&&d.w>=3)){snap();const t=ui.lastType;
       const sh=$t(TYPE[t].short),r=R(S.cur,`${sh} ${maxNum(sh)+1}`,t,d.shape,d.x,d.z,d.w,d.d);S.rooms.push(r);ui.sel=r.id;}}
@@ -590,8 +618,8 @@ function renderClip(){F('clip').hidden=!clip;if(!clip)return;
   F('clip-name').textContent=$t('В буфере: {name}',{name:clip.name||$t('комната')})+' · '+dims(clip)+(clip.floorId!==S.cur?' · '+$t('встанет на те же X и Z'):'');}
 function renderAll(){if(!S)return;renderProject();renderFloors();renderTypes();renderInspector();renderRoomList();renderClip();renderSecBar();updUndo();setCursor();req();}
 
-const HINTS={poly:'Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.',door:'Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.',select:'Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик внутри комнаты — схема по блокам, по стене — новая точка: потом тяни кусок стены рядом с ней. Двойной клик по точке удаляет её.',rect:'Тяни от угла до угла.',circle:'Тяни от центра наружу: диаметр всегда нечётный.',hand:'Тяни, чтобы двигать план. Колесо меняет масштаб.'};
-function setTool(t){if(t!=='poly'&&ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;}ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=$t(HINTS[t]);setCursor();
+const HINTS={ruler:'Тяни от точки до точки — покажет расстояние в блоках. Shift — ровно по прямой или под 45°. Esc убирает замер.',poly:'Кликай по углам блоков, чтобы ставить точки. Shift — ровные линии. Клик по первой точке, двойной клик или Enter — готово. Backspace убирает последнюю точку.',door:'Кликни по стене, чтобы прорезать проём. Размер новой двери задаётся справа. Проём пройдёт и через двойные стены соседних комнат.',select:'Клик выбирает, перетаскивание двигает, ручки меняют размер. Alt + перетаскивание копирует. Двойной клик внутри комнаты — схема по блокам, по стене — новая точка: потом тяни кусок стены рядом с ней. Двойной клик по точке удаляет её.',rect:'Тяни от угла до угла.',circle:'Тяни от центра наружу: диаметр всегда нечётный.',hand:'Тяни, чтобы двигать план. Колесо меняет масштаб.'};
+function setTool(t){if(t!=='ruler'&&ui.ruler){ui.ruler=null;req();}if(t!=='poly'&&ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;}ui.tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));F('hint').textContent=$t(HINTS[t]);setCursor();
   if(t==='door'&&S){ui.sel=null;ui.selDoor=null;renderRoomList();req();}if(S)renderInspector();}
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 F('zin').onclick=()=>zoomBy(1.25);F('zout').onclick=()=>zoomBy(.8);F('zfit').onclick=fitView;
@@ -739,7 +767,7 @@ function fromExport(d){
     const ay=d.auto_y&&typeof d.auto_y==='object'?{auto:true,top:num(d.auto_y.top_floor_y,Math.max(...floors.map(f=>f.y)))}:{auto:false,top:Math.max(...floors.map(f=>f.y))};
     return {v:1,name:String(d.project||$t('Без названия')),origin:{x:num(d.origin_world&&d.origin_world.x,0),z:num(d.origin_world&&d.origin_world.z,0)},stack:ay,mat:rmat(d.materials),floors,rooms,doors,cur:floors[0].id};}
   if(valid(d)){const c=JSON.parse(JSON.stringify(d));if(!c.origin)c.origin={x:0,z:0};if(!c.floors.find(f=>f.id===c.cur))c.cur=c.floors[0].id;return c;}
-  throw new Error($t('Это не похоже на план из Глубины: нет поля format или списка этажей.'));}
+  throw new Error($t('Это не похоже на план из {brand}: нет поля format или списка этажей.'));}
 F('im-go').onclick=()=>{const t=F('im-text').value.trim();if(!t){F('im-err').textContent=$t('Выбери файл или вставь текст плана.');return;}
   let d;try{d=JSON.parse(t);}catch(e){F('im-err').textContent=$t('Не получилось прочитать JSON. Проверь, что скопирован весь текст от { до }.');return;}
   try{const n=fromExport(d);n.id=uid('p');n.created=n.updated=Date.now();store.plans.push(n);F('m-import').hidden=true;F('im-text').value='';F('im-file').value='';openPlan(n.id);}
@@ -848,7 +876,7 @@ async function buildLitematic(scope){
   if(!regions.length)return null;
   const now=Date.now(),{i,l,s,list,c,la}=NB;
   const root=c({MinecraftDataVersion:i(3955),Version:i(6),SubVersion:i(1),
-    Metadata:c({Name:s(S.name||brand()),Author:s(brand()),Description:s($t('План из планировщика «Глубина»')),RegionCount:i(regions.length),TimeCreated:l(now),TimeModified:l(now),
+    Metadata:c({Name:s(S.name||brand()),Author:s(brand()),Description:s($t('План из планировщика {brand}')),RegionCount:i(regions.length),TimeCreated:l(now),TimeModified:l(now),
       TotalBlocks:i(total),TotalVolume:i(vol),EnclosingSize:c({x:i(mxX-mnX),y:i(mxY-mnY),z:i(mxZ-mnZ)})}),
     Regions:c(Object.fromEntries(regions.map(g=>[g.name,c({Position:c({x:i(g.x-mnX),y:i(g.y-mnY),z:i(g.z-mnZ)}),Size:c({x:i(g.sx),y:i(g.sy),z:i(g.sz)}),
       BlockStatePalette:list(10,g.pal.map(b=>c({Name:s(b)}))),BlockStates:la(g.u),TileEntities:list(10,[]),Entities:list(10,[]),PendingBlockTicks:list(10,[]),PendingFluidTicks:list(10,[])})])))});
@@ -933,7 +961,7 @@ cv.addEventListener('dblclick',e=>{if(!S||ui.view!=='plan')return;const p=pos(e)
 addEventListener('keydown',e=>{
   const modalOpen=!F('m-export').hidden||!F('m-import').hidden||!F('m-grid').hidden;
   if(e.key==='Escape'){if(modalOpen){F('m-export').hidden=F('m-import').hidden=F('m-grid').hidden=true;return;}
-    if(F('v-edit').hidden||!S)return;if(ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;req();return;}if(act&&act.type==='draw'){act=null;req();return;}ui.sel=null;renderInspector();renderRoomList();req();return;}
+    if(F('v-edit').hidden||!S)return;if(ui.pd){ui.pd=null;ui.pdHover=null;F('readout').textContent=readoutBase;req();return;}if(ui.ruler){ui.ruler=null;act=act&&act.type==='ruler'?null:act;F('readout').textContent=readoutBase;req();return;}if(act&&act.type==='draw'){act=null;req();return;}ui.sel=null;renderInspector();renderRoomList();req();return;}
   if(F('v-edit').hidden||!S||modalOpen)return;
   const typing=e.target.matches('input:not([type=checkbox]),textarea,select'),mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
   if(mod&&!typing&&(k==='z'||k==='я')){e.preventDefault();e.shiftKey?doRedo():doUndo();return;}
@@ -943,7 +971,7 @@ addEventListener('keydown',e=>{
   if(mod&&!typing&&(k==='v'||k==='м')){if(clip){e.preventDefault();pasteClip(true);}return;}
   if(typing||mod)return;
   if(k==='s'||k==='ы'){setView(ui.view==='section'?'plan':'section');return;}
-  const tools={v:'select','м':'select',r:'rect','к':'rect',c:'circle','с':'circle',p:'poly','з':'poly',h:'hand','р':'hand',d:'door','в':'door'};
+  const tools={v:'select','м':'select',r:'rect','к':'rect',c:'circle','с':'circle',p:'poly','з':'poly',h:'hand','р':'hand',d:'door','в':'door',l:'ruler','д':'ruler'};
   if(tools[k]){if(ui.view!=='section')setTool(tools[k]);return;}
   if(k==='f'||k==='а'){fitView();return;}
   if(ui.pd&&ui.pd.length){if(e.key==='Enter'){e.preventDefault();finishPoly();return;}if(e.key==='Backspace'){e.preventDefault();ui.pd.pop();if(!ui.pd.length){ui.pd=null;F('readout').textContent=readoutBase;}else polyReadout();req();return;}}
